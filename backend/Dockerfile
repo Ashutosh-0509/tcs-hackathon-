@@ -12,18 +12,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
-
-# Pre-cache the embedding model into the image so the first request is fast and
-# the container works even with no outbound network at runtime.
-RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')" || true
+# Full image: sentence-transformers + torch + the pre-cached embedding model.
+# Needs ~1GB RAM at runtime. For small hosts use Dockerfile.slim instead.
+COPY requirements.txt requirements-embeddings.txt ./
+RUN pip install --upgrade pip && pip install -r requirements-embeddings.txt && \
+    python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')" || true
 
 COPY . .
 
 EXPOSE 8000
 
-# $PORT is provided by most PaaS (Railway/Render); default 8000 locally.
 CMD ["sh", "-c", "alembic upgrade head && \
      if [ \"$SEED_ON_START\" = \"1\" ]; then python -m app.scripts.seed || true; fi && \
      uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

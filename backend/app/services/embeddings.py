@@ -30,6 +30,10 @@ class EmbeddingService:
     def _ensure_model(self) -> None:
         if self._backend != "uninitialized":
             return
+        if get_settings().embedding_provider == "hashed":
+            self._backend = "hashed-fallback"
+            logger.info("embeddings: hashed provider selected (no ML model loaded)")
+            return
         try:
             from sentence_transformers import SentenceTransformer
 

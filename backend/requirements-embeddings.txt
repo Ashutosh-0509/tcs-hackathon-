@@ -1,0 +1,5 @@
+# Local semantic-embedding backend. Large (~2GB with CPU torch). Install only when
+# EMBEDDING_PROVIDER=sentence-transformers. Otherwise the hashed fallback is used.
+-r requirements.txt
+scikit-learn==1.6.0
+sentence-transformers==3.3.1

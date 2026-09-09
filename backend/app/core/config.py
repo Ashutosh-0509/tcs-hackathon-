@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     llm_max_retries: int = 2
 
     # --- Embeddings ---
+    embedding_provider: str = "sentence-transformers"  # or "hashed" (tiny, no torch)
     embedding_model: str = "all-MiniLM-L6-v2"
 
     # --- Retrieval (Ask flow) ---

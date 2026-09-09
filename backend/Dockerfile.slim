@@ -1,0 +1,27 @@
+# Slim image for small free hosts (Render free = 512MB RAM). No torch /
+# sentence-transformers — run with EMBEDDING_PROVIDER=hashed. The LLM entailment
+# check (the primary reliability signal) is unaffected; semantic similarity
+# becomes approximate.
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUTF8=1 \
+    PIP_NO_CACHE_DIR=1 \
+    EMBEDDING_PROVIDER=hashed
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --upgrade pip && pip install -r requirements.txt
+
+COPY . .
+
+EXPOSE 8000
+
+CMD ["sh", "-c", "alembic upgrade head && \
+     if [ \"$SEED_ON_START\" = \"1\" ]; then python -m app.scripts.seed || true; fi && \
+     uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

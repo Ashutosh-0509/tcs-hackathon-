@@ -18,7 +18,30 @@ Vercel  tcs-hackathon.vercel.app   ──REST──▶  Railway  <backend>.up.ra
 | Backend + Postgres | ⛔ not deployed — Railway free plan is at its resource limit ("Free plan resource provision limit exceeded") |
 | GitHub auto-deploy | ❌ not connected — the repo `Ashutosh-0509/tcs-hackathon-` is not on the Vercel/Railway account, so neither can watch it for pushes |
 
-## Finish the backend (pick one)
+## Finish the backend — Render blueprint (recommended)
+
+The repo has [`render.yaml`](render.yaml). In Render:
+
+1. **New +  →  Blueprint**, pick this repo. Render provisions `trustlens-api`
+   (Docker, `backend/Dockerfile.slim`) + `trustlens-db` (free PostgreSQL).
+2. On the `trustlens-api` service, set **`LLM_API_KEY`** to the Groq key
+   (it's the only `sync: false` var).
+3. First deploy runs `alembic upgrade head`. Note the service URL
+   (`https://trustlens-api-XXXX.onrender.com`).
+4. Point the frontend at it:
+   ```
+   cd frontend
+   vercel env rm NEXT_PUBLIC_API_BASE_URL production preview -y
+   printf '<render-url>' | vercel env add NEXT_PUBLIC_API_BASE_URL production --visibility config --no-sensitive
+   printf '<render-url>' | vercel env add NEXT_PUBLIC_API_BASE_URL preview --visibility config --no-sensitive
+   vercel deploy --prod
+   ```
+
+Notes: the slim image runs `EMBEDDING_PROVIDER=hashed` (no torch — fits Render's
+512 MB free instance); the LLM entailment check is unaffected, semantic-similarity
+numbers are approximate. Render free web services cold-start after ~15 min idle.
+
+## Other backend options
 
 **A — Railway (recommended, ~2 min once unblocked)**
 1. Upgrade Railway to Hobby, or delete an unused project to free a slot.

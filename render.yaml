@@ -1,0 +1,43 @@
+# Render blueprint — provisions the TrustLens backend + PostgreSQL.
+# In Render: New +  →  Blueprint  →  pick this repo. Then paste LLM_API_KEY.
+databases:
+  - name: trustlens-db
+    plan: free
+    databaseName: trustlens
+    user: trustlens
+
+services:
+  - type: web
+    name: trustlens-api
+    runtime: docker
+    plan: free
+    rootDir: backend
+    dockerfilePath: ./Dockerfile.slim
+    dockerContext: .
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: trustlens-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: EMBEDDING_PROVIDER
+        value: hashed
+      - key: RETRIEVAL_PROVIDER
+        value: wikipedia
+      - key: LLM_PROVIDER
+        value: openai_compatible
+      - key: LLM_BASE_URL
+        value: https://api.groq.com/openai/v1
+      - key: LLM_MODEL
+        value: openai/gpt-oss-120b
+      - key: LLM_API_KEY
+        sync: false            # paste your Groq key in the Render dashboard
+      - key: CORS_ALLOW_ORIGINS
+        value: https://tcs-hackathon.vercel.app
+      - key: SEED_ON_START
+        value: "0"
+      - key: ENVIRONMENT
+        value: production
