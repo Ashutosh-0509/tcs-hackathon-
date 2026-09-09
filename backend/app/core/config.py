@@ -62,6 +62,17 @@ class Settings(BaseSettings):
     def _strip(cls, v: str) -> str:
         return v.strip()
 
+    @field_validator("database_url")
+    @classmethod
+    def _normalise_db_url(cls, v: str) -> str:
+        # Managed Postgres (Railway/Render/Heroku) hands out `postgres://` or
+        # `postgresql://`; SQLAlchemy 2 + our driver need the psycopg dialect.
+        if v.startswith("postgres://"):
+            v = "postgresql://" + v[len("postgres://") :]
+        if v.startswith("postgresql://"):
+            v = "postgresql+psycopg://" + v[len("postgresql://") :]
+        return v
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.cors_allow_origins.split(",") if o.strip()]
