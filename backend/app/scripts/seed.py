@@ -103,6 +103,9 @@ def _seed_cases(db, actor_id) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Seed TrustLens demo data")
     parser.add_argument("--reset", action="store_true", help="wipe demo answers first")
+    parser.add_argument(
+        "--users-only", action="store_true", help="create the demo accounts, no example cases"
+    )
     args = parser.parse_args()
 
     _ensure_schema()
@@ -112,6 +115,9 @@ def main() -> int:
         users = _seed_users(db)
         if args.reset:
             _reset(db)
+        if args.users_only:
+            print("done (users only).")
+            return 0
         print("seeding demo cases…")
         _seed_cases(db, actor_id=users["ADMIN"].id)
     print("done.")

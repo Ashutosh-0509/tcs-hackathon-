@@ -1,9 +1,17 @@
 from __future__ import annotations
 
+import sys
 from logging.config import fileConfig
+from pathlib import Path
+
+# Make the backend root importable no matter how alembic is invoked
+# (`alembic` console script does not add cwd to sys.path).
+_BACKEND_ROOT = Path(__file__).resolve().parents[2]
+if str(_BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(_BACKEND_ROOT))
 
 # Import models so their tables register on Base.metadata.
-import app.models  # noqa: F401
+import app.models  # noqa: E402, F401
 from app.core.config import get_settings
 from app.db.base import Base
 from sqlalchemy import engine_from_config, pool
