@@ -48,8 +48,9 @@ export default function AskPage() {
       <div className="mb-6">
         <h1 className="text-xl font-semibold tracking-tight">Ask a question</h1>
         <p className="mt-1 text-sm text-ink-soft">
-          The AI answers, then TrustLens pulls real sources and checks the answer
-          against them — claim by claim, with a confidence score and links you can open.
+          The AI answers, then TrustLens pulls real sources — Wikipedia, Wikidata
+          and Wikinews — and checks the answer against them, claim by claim, with a
+          confidence score and links you can open.
         </p>
       </div>
 

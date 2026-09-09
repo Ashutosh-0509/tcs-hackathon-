@@ -45,16 +45,20 @@ class Settings(BaseSettings):
     embedding_model: str = "all-MiniLM-L6-v2"
 
     # --- Retrieval (Ask flow) ---
-    retrieval_provider: str = "wikipedia"  # "wikipedia" | "none"
+    retrieval_provider: str = "wikipedia"  # "wikipedia" | "none" (any non-"none" value enables it)
     retrieval_results: int = 4
+    # Trusted sources queried for verification, comma-separated.
+    retrieval_sources: str = "wikipedia,wikidata,wikinews"
 
     # --- Reliability policy ---
     certain_threshold: int = 80
     uncertain_threshold: int = 50
-    weight_evidence: float = 0.50
-    weight_semantic: float = 0.25
-    weight_uncertainty: float = 0.15
-    weight_relevance: float = 0.10
+    # Evidence (per-claim entailment) is the authoritative signal; the two
+    # cosine-based signals are supporting only, so they carry less weight.
+    weight_evidence: float = 0.60
+    weight_semantic: float = 0.20
+    weight_uncertainty: float = 0.12
+    weight_relevance: float = 0.08
     evidence_support_threshold: float = 0.55
 
     # --- Security ---
@@ -89,6 +93,10 @@ class Settings(BaseSettings):
     @property
     def cors_origin_regex(self) -> str | None:
         return self.cors_allow_origin_regex or None
+
+    @property
+    def retrieval_sources_list(self) -> list[str]:
+        return [s.strip().lower() for s in self.retrieval_sources.split(",") if s.strip()]
 
     @property
     def effective_llm_provider(self) -> str:

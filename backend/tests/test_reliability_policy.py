@@ -26,7 +26,7 @@ def test_score_formula_weighted_components():
     s = _signals(
         evidence_support=1.0, semantic_support=0.0, uncertainty_score=0.0, answer_relevance=0.0
     )
-    assert policy.score(s) == 50  # evidence weight 0.50
+    assert policy.score(s) == 60  # evidence weight 0.60
 
 
 def test_weights_are_normalized_when_misconfigured():

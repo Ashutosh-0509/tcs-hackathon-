@@ -153,8 +153,14 @@ signal uses a neutral prior. Perplexity is **never fabricated**.
 Pure functions. No I/O.
 
 ```text
-weights  (configurable):   evidence 0.50 | semantic 0.25 | uncertainty 0.15 | relevance 0.10
-final_score = 100 * (evidence*0.50 + semantic*0.25 + uncertainty*0.15 + relevance*0.10)
+weights  (configurable):   evidence 0.60 | semantic 0.20 | uncertainty 0.12 | relevance 0.08
+final_score = 100 * (evidence*0.60 + semantic*0.20 + uncertainty*0.12 + relevance*0.08)
+
+Evidence (per-claim entailment) is the authoritative signal. When a definitive
+LLM entailment verdict exists, a SUPPORTED claim's semantic score is lifted to
+1.0 — the fuzzy cosine (approximate under the hashed-embedding fallback) must not
+tax a claim the fact-checker confirmed. A fully-entailed answer with no
+contradictions also floors answer_relevance, so it can reach CERTAIN.
 
 thresholds (configurable): CERTAIN_THRESHOLD=80, UNCERTAIN_THRESHOLD=50
    score ≥ 80            → CERTAIN
@@ -173,6 +179,25 @@ Never emit CERTAIN when evidence is absent or the evaluator errored.
 
 Every label carries a machine-readable `reasons: string[]` explaining which rule
 fired.
+
+### 3.4a Retrieval — `app/services/retrieval.py`
+
+`RetrievalService` fetches real, citable sources for the Ask flow from three
+key-free, editorially-governed sources, queried independently (one failing never
+breaks retrieval):
+
+| Source | API | Role |
+|---|---|---|
+| **Wikipedia** (`en.wikipedia.org`) | MediaWiki REST + `extracts` | general encyclopedia |
+| **Wikidata** (`www.wikidata.org`) | `wbsearchentities` + `wbgetentities` | structured facts — founder, inception, HQ, education… rendered as text |
+| **Wikinews** (`en.wikinews.org`) | MediaWiki REST + `extracts` | journalism / current events |
+
+`search_for_answer(question, answer)` queries each source with the question
+keyword and the proper nouns named in the question/answer, then `_rank()` keeps
+the results with real topical overlap (a title match on a *question* term counts
+most) — sources compete on relevance, so a source with no real coverage of the
+topic simply drops out. `RETRIEVAL_SOURCES` configures the list.
+`fetch_page(url)` (Check flow) fetches a pasted URL and chunks its readable text.
 
 ### 3.5 Security layer
 
@@ -349,7 +374,9 @@ NEEDS_VERIFICATION` and `reasons` explaining the failure. LLM timeout (default
 | `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | sentence-transformers model |
 | `CERTAIN_THRESHOLD` | `80` | |
 | `UNCERTAIN_THRESHOLD` | `50` | |
-| `WEIGHT_EVIDENCE` / `WEIGHT_SEMANTIC` / `WEIGHT_UNCERTAINTY` / `WEIGHT_RELEVANCE` | `0.50 / 0.25 / 0.15 / 0.10` | policy weights |
+| `WEIGHT_EVIDENCE` / `WEIGHT_SEMANTIC` / `WEIGHT_UNCERTAINTY` / `WEIGHT_RELEVANCE` | `0.60 / 0.20 / 0.12 / 0.08` | policy weights |
+| `RETRIEVAL_PROVIDER` | `wikipedia` | any non-`none` value enables retrieval |
+| `RETRIEVAL_SOURCES` | `wikipedia,wikidata,wikinews` | trusted sources queried for verification |
 | `EVIDENCE_SUPPORT_THRESHOLD` | `0.55` | cosine cutoff for "supported" |
 | `PII_USE_PRESIDIO` | `false` | enable optional Presidio pass |
 | `CORS_ALLOW_ORIGINS` | `http://localhost:3000` | explicit CORS allowlist (comma-separated) |

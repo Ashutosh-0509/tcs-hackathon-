@@ -18,6 +18,14 @@ export function EvidencePanel({
       .map((c, i) => ({ c, i }))
       .filter(({ c }) => c.best_evidence_ordinal === ordinal);
 
+  const SOURCE_LABEL: Record<string, string> = {
+    wikipedia: "Wikipedia",
+    wikidata: "Wikidata",
+    wikinews: "Wikinews",
+    url: "Fetched page",
+    user: "Your text",
+  };
+
   return (
     <Card>
       <CardHeader
@@ -47,19 +55,26 @@ export function EvidencePanel({
                     E{(s.ordinal ?? i) + 1}
                   </span>
                   <div className="flex-1">
-                    {s.url ? (
-                      <a
-                        href={s.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 font-medium text-ink hover:underline"
-                      >
-                        {s.title || s.url}
-                        <ExternalLink className="h-3 w-3 text-ink-faint" />
-                      </a>
-                    ) : (
-                      s.title && <span className="font-medium">{s.title}</span>
-                    )}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {s.url ? (
+                        <a
+                          href={s.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 font-medium text-ink hover:underline"
+                        >
+                          {s.title || s.url}
+                          <ExternalLink className="h-3 w-3 text-ink-faint" />
+                        </a>
+                      ) : (
+                        s.title && <span className="font-medium">{s.title}</span>
+                      )}
+                      {s.source && SOURCE_LABEL[s.source] && (
+                        <span className="rounded-full border border-line px-1.5 py-0.5 text-2xs text-ink-faint">
+                          {SOURCE_LABEL[s.source]}
+                        </span>
+                      )}
+                    </div>
                     <p className="mt-0.5 text-ink-soft">{s.snippet}</p>
                     {cited.length > 0 && (
                       <div className="mt-1.5 flex flex-wrap gap-1">

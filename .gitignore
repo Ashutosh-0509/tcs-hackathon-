@@ -44,3 +44,7 @@ backend/.hf/
 /graft/
 
 .vercel
+
+# local debug / screenshots — not for the repo
+*.pdf
+screencapture-*

@@ -26,10 +26,10 @@ from dataclasses import dataclass, field
 from app.models.enums import ReliabilityLabel
 
 DEFAULT_WEIGHTS: dict[str, float] = {
-    "evidence": 0.50,
-    "semantic": 0.25,
-    "uncertainty": 0.15,
-    "relevance": 0.10,
+    "evidence": 0.60,
+    "semantic": 0.20,
+    "uncertainty": 0.12,
+    "relevance": 0.08,
 }
 DEFAULT_THRESHOLDS: dict[str, int] = {"certain": 80, "uncertain": 50}
 

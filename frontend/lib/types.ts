@@ -52,6 +52,7 @@ export interface SourceRef {
   snippet: string;
   title: string | null;
   url: string | null;
+  source?: string | null; // "wikipedia" | "wikidata" | "wikinews" | "url" | "user"
 }
 
 export interface AnswerResponse {

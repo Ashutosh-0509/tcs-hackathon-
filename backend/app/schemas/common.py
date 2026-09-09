@@ -15,6 +15,7 @@ class SourceRef(BaseModel):
     snippet: str
     title: str | None = None
     url: str | None = None
+    source: str | None = None  # "wikipedia" | "wikidata" | "wikinews" | "url" | None
 
 
 class SecurityBlock(BaseModel):

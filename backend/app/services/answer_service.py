@@ -49,6 +49,7 @@ class Source:
     snippet: str
     title: str | None = None
     url: str | None = None
+    source: str | None = None  # provenance: "wikipedia" | "wikidata" | "wikinews" | "url"
 
 
 class AnswerService:
@@ -76,13 +77,15 @@ class AnswerService:
         answer_result = self.llm.answer_question(red_q.redacted)
 
         # 2. retrieve independent, citable sources (for the question and the answer)
-        docs = self.retrieval.search_for_answer(red_q.redacted, answer_result.text, k=5)
+        docs = self.retrieval.search_for_answer(red_q.redacted, answer_result.text, k=6)
         red_sources: list[Source] = []
         source_spans = []
         for d in docs:
             r = self.pii.redact(d.snippet)
             source_spans.extend(r.spans)
-            red_sources.append(Source(snippet=r.redacted, title=d.title, url=d.url))
+            red_sources.append(
+                Source(snippet=r.redacted, title=d.title, url=d.url, source=d.source)
+            )
 
         security = self._security_block(red_q.spans + source_spans, ["question", "sources"])
         return self._run(
@@ -173,13 +176,14 @@ class AnswerService:
                 docs = self.retrieval.fetch_page(entry)
                 if docs:
                     expanded.extend(
-                        Source(snippet=d.snippet, title=d.title, url=d.url) for d in docs
+                        Source(snippet=d.snippet, title=d.title, url=d.url, source=d.source)
+                        for d in docs
                     )
                     continue
                 logger.warning("could not fetch source URL; keeping it as literal text")
-                expanded.append(Source(snippet=entry, url=entry))
+                expanded.append(Source(snippet=entry, url=entry, source="url"))
             else:
-                expanded.append(Source(snippet=entry))
+                expanded.append(Source(snippet=entry, source="user"))
 
         spans: list[PIISpan] = []
         for src in expanded:
@@ -254,7 +258,7 @@ class AnswerService:
                 for a in outcome.claims
                 if a.best_evidence_ordinal is not None
             }
-            keep = sorted(set(range(min(2, len(sources)))) | used)
+            keep = sorted(set(range(min(4, len(sources)))) | used)
             remap = {old: new for new, old in enumerate(keep)}
             sources = [sources[i] for i in keep]
             snippets = [s.snippet for s in sources]
@@ -374,7 +378,9 @@ class AnswerService:
             mode=mode,
             evidence=snippets,
             sources=[
-                SourceRef(ordinal=i, snippet=s.snippet, title=s.title, url=s.url)
+                SourceRef(
+                    ordinal=i, snippet=s.snippet, title=s.title, url=s.url, source=s.source
+                )
                 for i, s in enumerate(sources)
             ],
             claims=[

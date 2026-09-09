@@ -69,8 +69,29 @@ class EvaluationOutcome:
     evaluation_failed: bool = False
 
 
+_STOP = {
+    "the", "a", "an", "is", "are", "was", "were", "be", "been", "of", "in", "on",
+    "at", "to", "for", "and", "or", "by", "with", "as", "that", "this", "it", "its",
+    "from", "who", "what", "when", "where", "which", "while", "they", "he", "she",
+}
+
+
 def _tokens(text: str) -> set[str]:
     return set(_WORD.findall(text.lower()))
+
+
+def _content_tokens(text: str) -> set[str]:
+    return {t for t in _WORD.findall(text.lower()) if len(t) > 2 and t not in _STOP}
+
+
+def _token_coverage(claim: str, evidence: str) -> float:
+    """Fraction of the claim's content words that appear in the evidence — a cheap
+    entailment proxy for when embeddings are weak (hashed fallback) or the LLM
+    entailment check is unavailable."""
+    ct = _content_tokens(claim)
+    if not ct:
+        return 0.0
+    return len(ct & _content_tokens(evidence)) / len(ct)
 
 
 def _has_negation_mismatch(claim: str, evidence: str) -> bool:
@@ -208,16 +229,25 @@ class EvaluationEngine:
                     )
                     source = "llm"
                     rationale = j.rationale or j.verdict.value.replace("_", " ").lower()
+                    # A definitive entailment verdict is authoritative — don't let the
+                    # fuzzy embedding cosine (approximate under the hashed fallback)
+                    # drag down a claim the fact-checker confirmed.
+                    if supported:
+                        best_sim = 1.0
                 else:
-                    lex_supported = best_sim >= self.support_threshold
+                    coverage = _token_coverage(claim.text, evidence[best_j])
+                    # either a strong embedding match OR most of the claim's content
+                    # words are present in the closest snippet
+                    lex_supported = best_sim >= self.support_threshold or coverage >= 0.7
                     contradicted = _has_negation_mismatch(claim.text, evidence[best_j])
                     supported = lex_supported and not contradicted
+                    best_sim = max(best_sim, coverage)
                     ev_ord = best_j
                     source = "heuristic"
                     rationale = (
                         "wording contradicts the closest evidence"
                         if contradicted
-                        else f"lexical match to evidence E{best_j + 1} ({best_sim:.0%})"
+                        else f"evidence E{best_j + 1} covers {coverage:.0%} of the claim"
                         if supported
                         else "no evidence snippet covers this claim"
                     )
@@ -265,6 +295,17 @@ class EvaluationEngine:
         critical_unsupported = any(
             a.is_critical and not a.supported for a in assessments
         ) or (not assessments and evidence_available is False)
+
+        # If every claim the answer makes is entailed by the evidence and nothing
+        # is contradicted, the answer is on-topic by construction — the hashed
+        # question/answer cosine understates this, so floor it.
+        if (
+            assessments
+            and not contradictory
+            and not critical_unsupported
+            and all(a.supported for a in assessments)
+        ):
+            answer_relevance = max(answer_relevance, 0.75)
 
         signals = ReliabilitySignals(
             evidence_support=evidence_support,
