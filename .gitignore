@@ -1,0 +1,44 @@
+# Env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+*.sqlite3
+*.db
+
+# Node / Next
+node_modules/
+.next/
+out/
+npm-debug.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# graft
+graft/.cache/
+
+# Local models cache
+.cache/
+models/
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/

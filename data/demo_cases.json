@@ -1,0 +1,45 @@
+[
+  {
+    "name": "python_supported",
+    "question": "Who invented Python?",
+    "answer": "Python was created by Guido van Rossum.",
+    "source": "Python was created by Guido van Rossum and first released in 1991.",
+    "expected_label": "CERTAIN"
+  },
+  {
+    "name": "telephone_partial",
+    "question": "Who invented the telephone?",
+    "answer": "The telephone was invented by Alexander Graham Bell.",
+    "source": "Alexander Graham Bell patented a telephone design in 1876.",
+    "expected_label": "UNCERTAIN"
+  },
+  {
+    "name": "unsupported_ceo",
+    "question": "Who is the CEO of Company X?",
+    "answer": "The CEO of Company X is Jane Doe.",
+    "source": "Company X was founded in 1995 and is headquartered in Pune.",
+    "expected_label": "NEEDS_VERIFICATION"
+  },
+  {
+    "name": "contradicted_claim",
+    "question": "Is the Earth flat?",
+    "answer": "The Earth is flat.",
+    "source": "The Earth is not flat; it is an oblate spheroid.",
+    "expected_label": "NEEDS_VERIFICATION"
+  },
+  {
+    "name": "no_evidence",
+    "question": "What is the capital of Atlantis?",
+    "answer": "The capital of Atlantis is Poseidonis.",
+    "source": "",
+    "expected_label": "NEEDS_VERIFICATION"
+  },
+  {
+    "name": "pii_customer_record",
+    "question": "Explain this customer record.",
+    "answer": "The customer holds PAN ABCPD1234E and can be reached at customer@example.com.",
+    "source": "Customer record: PAN ABCPD1234E, email customer@example.com, phone 9876543210.",
+    "expected_label": "UNCERTAIN",
+    "note": "Synthetic PII only. All identifiers must be redacted before the LLM and before storage."
+  }
+]

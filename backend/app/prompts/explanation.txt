@@ -1,0 +1,13 @@
+Write a short, plain-language explanation (2-4 sentences) of why this answer received its reliability label.
+
+Do NOT change the label or the score. Explain the reasoning behind them.
+Mention: how well the evidence supported the claims, any contradictions, and any unsupported critical claims.
+
+LABEL: {label}
+SCORE: {score}/100
+REASONS: {reasons}
+
+CLAIMS AND SUPPORT:
+{claim_summary}
+
+EXPLANATION:

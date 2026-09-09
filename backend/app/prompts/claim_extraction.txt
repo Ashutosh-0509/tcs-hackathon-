@@ -1,0 +1,18 @@
+Extract the atomic factual claims made by the ANSWER below.
+
+An atomic claim is a single, self-contained, verifiable statement of fact.
+- Split compound sentences into separate claims.
+- Keep each claim understandable on its own (resolve pronouns).
+- Ignore hedging, opinions, and meta statements ("the sources say...").
+- Mark a claim as "critical" if it is the central factual assertion the question asks about.
+
+Return ONLY valid JSON of the form:
+{{"claims": [{{"text": "<claim>", "is_critical": <true|false>}}]}}
+
+QUESTION:
+{question}
+
+ANSWER:
+{answer}
+
+JSON:
