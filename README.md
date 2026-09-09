@@ -18,12 +18,16 @@ The LLM never decides the label. The application does.
 Question → AI Answer → Claims → Evidence → Reliability Score → Label → Explanation → Human Review → Audit
 ```
 
-## Two modes
+## Three entry points
 
-| Mode | Endpoint | Use |
+| Flow | Endpoint | Use |
 |---|---|---|
-| A — generate + evaluate | `POST /api/v1/answer` | TrustLens produces the answer from the sources |
-| B — evaluate existing output | `POST /api/v1/evaluate` | score an answer another AI produced (enterprise path) |
+| **Ask** (primary) | `POST /api/v1/ask` | user asks a question → the model answers → TrustLens retrieves real sources (Wikipedia) and verifies the answer against them, with linked citations |
+| Check — evaluate | `POST /api/v1/evaluate` | you have an answer from another AI + its source material; TrustLens scores it (enterprise path) |
+| Check — generate | `POST /api/v1/answer` | you supply sources; TrustLens writes an answer from them, then scores it |
+
+Retrieval source is configurable (`RETRIEVAL_PROVIDER=wikipedia|none`); a web-search
+backend (Tavily / Brave) drops in behind the same interface.
 
 ## Quick start (Docker)
 

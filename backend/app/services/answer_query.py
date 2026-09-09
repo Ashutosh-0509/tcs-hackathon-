@@ -10,7 +10,7 @@ from app.core.errors import NotFoundError
 from app.models import Answer, Question
 from app.models.enums import ReliabilityLabel
 from app.schemas.answer import AnswerDetail, AnswerSummary, ReviewSummary
-from app.schemas.common import ClaimResult, MetricsBlock, ReliabilityBlock
+from app.schemas.common import ClaimResult, MetricsBlock, ReliabilityBlock, SourceRef
 from app.services.review_service import effective_label
 
 
@@ -108,6 +108,10 @@ def get_answer(db: Session, answer_id: uuid.UUID) -> AnswerDetail:
             relevance_score=round(rel.relevance_score, 4) if rel else 0.0,
         ),
         evidence=[e.snippet for e in answer.question.evidence],
+        sources=[
+            SourceRef(ordinal=e.ordinal, snippet=e.snippet, title=e.title, url=e.url)
+            for e in sorted(answer.question.evidence, key=lambda e: e.ordinal)
+        ],
         explanation=answer.explanation,
         review=(
             ReviewSummary(

@@ -6,6 +6,7 @@ os.environ.setdefault("DATABASE_URL", "sqlite+pysqlite:///:memory:")
 os.environ.setdefault("JWT_SECRET", "test-secret")
 os.environ.setdefault("LLM_PROVIDER", "stub")
 os.environ.setdefault("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+os.environ.setdefault("RETRIEVAL_PROVIDER", "none")  # no network in tests
 # Keep the test run hermetic: never block on a HuggingFace download. If the
 # sentence-transformers model is already cached locally it is used; otherwise the
 # EmbeddingService falls back to its deterministic hashed vectors.

@@ -8,7 +8,8 @@ import { useAuth } from "@/lib/auth";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 const NAV = [
-  { href: "/analyze", label: "Analyze" },
+  { href: "/ask", label: "Ask" },
+  { href: "/check", label: "Check" },
   { href: "/history", label: "History" },
   { href: "/review", label: "Review", editor: true },
   { href: "/audit", label: "Audit", editor: true },
@@ -21,7 +22,7 @@ export function TopBar() {
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-bg/80 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-6 px-4 sm:px-6">
-        <Link href="/analyze" className="flex items-center gap-2">
+        <Link href="/ask" className="flex items-center gap-2">
           <ScanEye className="h-[18px] w-[18px]" />
           <span className="text-[15px] font-semibold tracking-tight">TrustLens</span>
         </Link>

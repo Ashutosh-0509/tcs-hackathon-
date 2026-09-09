@@ -74,6 +74,12 @@ class LLMProvider(ABC):
     def generate_answer(self, question: str, sources: list[str]) -> LLMResult: ...
 
     @abstractmethod
+    def answer_question(self, question: str) -> LLMResult:
+        """Answer from the model's own knowledge, with NO sources supplied. The
+        point of TrustLens's Ask flow is to then check this answer against
+        independently retrieved evidence."""
+
+    @abstractmethod
     def extract_claims(self, question: str, answer: str) -> ClaimExtraction: ...
 
     @abstractmethod

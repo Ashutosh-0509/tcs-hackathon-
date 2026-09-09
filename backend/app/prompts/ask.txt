@@ -1,0 +1,10 @@
+Answer the question below as accurately and concisely as you can, from your own knowledge.
+
+- 1-4 sentences. State facts plainly.
+- If you are genuinely unsure, say so briefly rather than guessing.
+- Do not add disclaimers or "as an AI" preamble.
+
+QUESTION:
+{question}
+
+ANSWER:

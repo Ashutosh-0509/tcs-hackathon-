@@ -10,11 +10,21 @@ from app.schemas.common import (
     MetricsBlock,
     ReliabilityBlock,
     SecurityBlock,
+    SourceRef,
 )
 
 
+class AskRequest(BaseModel):
+    """Primary flow — the user asks a question and nothing else. TrustLens gets
+    the model's answer, retrieves real sources, and verifies the answer against
+    them."""
+
+    question: str = Field(min_length=3, max_length=2000)
+    include_explanation: bool = True
+
+
 class AnswerRequest(BaseModel):
-    """Mode A — TrustLens generates the answer, then evaluates it."""
+    """Mode A — TrustLens generates the answer from user-supplied sources."""
 
     question: str = Field(min_length=3, max_length=4000)
     source_snippets: list[str] = Field(default_factory=list, max_length=50)
@@ -36,8 +46,11 @@ class AnswerResponse(BaseModel):
     request_id: str
     answer_id: str
     question_id: str
+    question: str
     answer: str
+    mode: QuestionMode
     evidence: list[str]
+    sources: list[SourceRef]
     claims: list[ClaimResult]
     metrics: MetricsBlock
     reliability: ReliabilityBlock
@@ -75,5 +88,6 @@ class AnswerDetail(AnswerSummary):
     metrics: MetricsBlock
     reliability: ReliabilityBlock
     evidence: list[str]
+    sources: list[SourceRef] = []
     explanation: str | None = None
     review: ReviewSummary | None = None

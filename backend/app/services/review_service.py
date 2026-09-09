@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.errors import NotFoundError, TrustLensError
 from app.models import Answer, Question, Review
 from app.models.enums import AuditAction, ReliabilityLabel, ReviewStatus
+from app.schemas.common import SourceRef
 from app.schemas.review import ReviewDecisionRequest, ReviewDetail, ReviewQueueItem
 from app.services import audit
 
@@ -103,6 +104,10 @@ def get_detail(db: Session, review_id: uuid.UUID) -> ReviewDetail:
             for c in answer.claims
         ],
         evidence=[e.snippet for e in question.evidence],
+        sources=[
+            SourceRef(ordinal=e.ordinal, snippet=e.snippet, title=e.title, url=e.url)
+            for e in sorted(question.evidence, key=lambda e: e.ordinal)
+        ],
         decision_note=review.decision_note,
         reviewed_by=str(review.reviewed_by) if review.reviewed_by else None,
         decided_at=review.decided_at,

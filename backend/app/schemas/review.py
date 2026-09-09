@@ -5,6 +5,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from app.models.enums import ReliabilityLabel, ReviewStatus
+from app.schemas.common import SourceRef
 
 
 class ReviewQueueItem(BaseModel):
@@ -26,6 +27,7 @@ class ReviewDetail(ReviewQueueItem):
     reasons: list[str]
     claims: list[dict]
     evidence: list[str]
+    sources: list[SourceRef] = []
     explanation: str | None = None
     decision_note: str | None = None
     reviewed_by: str | None = None

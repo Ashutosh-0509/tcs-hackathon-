@@ -83,7 +83,7 @@ export default function HistoryPage() {
                     overridden={a.effective_label !== a.label}
                   />
                   <span className="tnum text-2xs text-ink-faint">{a.final_score}/100</span>
-                  <Pill tone="neutral">{a.mode === "GENERATE" ? "Generated" : "Evaluated"}</Pill>
+                  <Pill tone="neutral">{a.mode === "ASK" ? "Asked" : a.mode === "GENERATE" ? "Generated" : "Evaluated"}</Pill>
                   {rs && <Pill tone={rs.tone === "neutral" ? "neutral" : rs.tone}>{rs.text}</Pill>}
                   <span className="ml-auto text-2xs text-ink-faint">{relativeTime(a.created_at)}</span>
                 </div>

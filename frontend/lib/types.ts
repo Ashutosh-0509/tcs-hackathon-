@@ -2,7 +2,7 @@
 
 export type ReliabilityLabel = "CERTAIN" | "UNCERTAIN" | "NEEDS_VERIFICATION";
 export type ReviewStatus = "PENDING" | "APPROVED" | "REJECTED" | "ESCALATED";
-export type QuestionMode = "GENERATE" | "EVALUATE";
+export type QuestionMode = "ASK" | "GENERATE" | "EVALUATE";
 export type AnswerSource = "TRUSTLENS_LLM" | "EXTERNAL";
 export type Role = "USER" | "EDITOR" | "ADMIN";
 
@@ -47,12 +47,22 @@ export interface SecurityBlock {
   redacted_fields: string[];
 }
 
+export interface SourceRef {
+  ordinal: number;
+  snippet: string;
+  title: string | null;
+  url: string | null;
+}
+
 export interface AnswerResponse {
   request_id: string;
   answer_id: string;
   question_id: string;
+  question: string;
   answer: string;
+  mode: QuestionMode;
   evidence: string[];
+  sources: SourceRef[];
   claims: ClaimResult[];
   metrics: MetricsBlock;
   reliability: ReliabilityBlock;
@@ -90,6 +100,7 @@ export interface AnswerDetail extends AnswerSummary {
   metrics: MetricsBlock;
   reliability: ReliabilityBlock;
   evidence: string[];
+  sources: SourceRef[];
   explanation: string | null;
   review: ReviewSummary | null;
 }
@@ -113,6 +124,7 @@ export interface ReviewDetail extends ReviewQueueItem {
   reasons: string[];
   claims: ClaimResult[];
   evidence: string[];
+  sources: SourceRef[];
   explanation: string | null;
   decision_note: string | null;
   reviewed_by: string | null;

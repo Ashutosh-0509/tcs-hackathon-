@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     # --- Embeddings ---
     embedding_model: str = "all-MiniLM-L6-v2"
 
+    # --- Retrieval (Ask flow) ---
+    retrieval_provider: str = "wikipedia"  # "wikipedia" | "none"
+    retrieval_results: int = 4
+
     # --- Reliability policy ---
     certain_threshold: int = 80
     uncertain_threshold: int = 50

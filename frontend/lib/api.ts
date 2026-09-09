@@ -74,6 +74,10 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return body as T;
 }
 
+export interface AskPayload {
+  question: string;
+  include_explanation?: boolean;
+}
 export interface EvaluatePayload {
   question: string;
   answer: string;
@@ -110,6 +114,8 @@ export const api = {
     }),
   me: () => request<{ id: string; email: string; role: Role }>("/auth/me"),
 
+  ask: (p: AskPayload) =>
+    request<AnswerResponse>("/ask", { method: "POST", body: JSON.stringify(p) }),
   submitQuestion: (p: GeneratePayload) =>
     request<AnswerResponse>("/answer", { method: "POST", body: JSON.stringify(p) }),
   evaluateAnswer: (p: EvaluatePayload) =>

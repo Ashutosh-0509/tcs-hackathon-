@@ -8,15 +8,17 @@ import type {
   AnswerSource,
   ClaimResult,
   MetricsBlock,
+  QuestionMode,
   ReliabilityBlock,
   ReliabilityLabel,
   SecurityBlock,
+  SourceRef,
 } from "@/lib/types";
 
 export interface ResultViewData {
   question: string;
   answer: string;
-  evidence: string[];
+  sources: SourceRef[];
   claims: ClaimResult[];
   metrics: MetricsBlock;
   reliability: ReliabilityBlock;
@@ -27,10 +29,12 @@ export interface ResultViewData {
   source?: AnswerSource;
   model?: string | null;
   effectiveLabel?: ReliabilityLabel;
+  mode?: QuestionMode;
 }
 
 export function ResultView({ data }: { data: ResultViewData }) {
   const label = data.effectiveLabel ?? data.reliability.label;
+  const retrieved = data.mode === "ASK";
   return (
     <div className="animate-fade-up space-y-4">
       <WarningPanel
@@ -48,9 +52,10 @@ export function ResultView({ data }: { data: ResultViewData }) {
             source={data.source}
             model={data.model}
             requestId={data.requestId}
+            mode={data.mode}
           />
-          <ClaimsPanel claims={data.claims} evidence={data.evidence} />
-          <EvidencePanel evidence={data.evidence} claims={data.claims} />
+          <ClaimsPanel claims={data.claims} sources={data.sources} />
+          <EvidencePanel sources={data.sources} claims={data.claims} retrieved={retrieved} />
         </div>
 
         <div className="space-y-4 lg:col-span-2">
@@ -61,9 +66,11 @@ export function ResultView({ data }: { data: ResultViewData }) {
           />
           {data.explanation && (
             <Card>
-              <CardHeader title="Explanation" hint="Generated — does not change the label" />
+              <CardHeader title="Why this verdict" hint="Plain-language — does not change the score" />
               <CardBody>
-                <p className="text-sm leading-relaxed text-ink-soft">{data.explanation}</p>
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink-soft">
+                  {data.explanation}
+                </p>
               </CardBody>
             </Card>
           )}

@@ -37,7 +37,7 @@ export default function AnswerDetailPage({ params }: { params: { id: string } })
           <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-ink-faint">
             <span className="font-mono">{data.request_id}</span>
             <span>· {relativeTime(data.created_at)}</span>
-            <Pill tone="neutral">{data.mode === "GENERATE" ? "Generated" : "Evaluated"}</Pill>
+            <Pill tone="neutral">{data.mode === "ASK" ? "Asked" : data.mode === "GENERATE" ? "Generated" : "Evaluated"}</Pill>
             {data.review && (
               <Pill
                 tone={
@@ -55,7 +55,7 @@ export default function AnswerDetailPage({ params }: { params: { id: string } })
             data={{
               question: data.question,
               answer: data.answer,
-              evidence: data.evidence,
+              sources: data.sources,
               claims: data.claims,
               metrics: data.metrics,
               reliability: data.reliability,
@@ -64,6 +64,7 @@ export default function AnswerDetailPage({ params }: { params: { id: string } })
               source: data.source,
               model: data.model,
               effectiveLabel: data.effective_label,
+              mode: data.mode,
             }}
           />
 

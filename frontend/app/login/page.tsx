@@ -31,7 +31,7 @@ function LoginInner() {
     setError(null);
     try {
       await login(email, password);
-      router.replace(params.get("next") === "editor" ? "/review" : "/analyze");
+      router.replace(params.get("next") === "editor" ? "/review" : "/ask");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Sign in failed.");
     } finally {
@@ -111,7 +111,7 @@ function LoginInner() {
           </CardBody>
         </Card>
 
-        <a href="/analyze" className="mt-4 block text-center text-xs text-ink-faint hover:text-ink">
+        <a href="/ask" className="mt-4 block text-center text-xs text-ink-faint hover:text-ink">
           Continue without signing in →
         </a>
       </div>

@@ -76,6 +76,18 @@ class StubProvider(LLMProvider):
             text = best.strip() or joined[:300]
         return LLMResult(text=text, model="stub-extractive-v1", logprob_available=False)
 
+    def answer_question(self, question: str) -> LLMResult:
+        # Offline: no real knowledge. Return a clearly-hedged placeholder so the
+        # Ask flow still exercises retrieval + verification end to end.
+        return LLMResult(
+            text=(
+                f"(offline stub) A direct answer to “{question.strip().rstrip('?')}” "
+                "is not available without a configured language model."
+            ),
+            model="stub-extractive-v1",
+            logprob_available=False,
+        )
+
     def extract_claims(self, question: str, answer: str) -> ClaimExtraction:
         if answer.strip() == _NO_ANSWER or not answer.strip():
             return ClaimExtraction(claims=[], model="stub-extractive-v1")

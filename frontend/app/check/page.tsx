@@ -80,11 +80,11 @@ export default function AnalyzePage() {
   return (
     <Shell>
       <div className="mb-6">
-        <h1 className="text-xl font-semibold tracking-tight">Analyze an answer</h1>
+        <h1 className="text-xl font-semibold tracking-tight">Check against your own sources</h1>
         <p className="mt-1 text-sm text-ink-soft">
           {mode === "evaluate"
-            ? "Score an answer produced by any AI system against the evidence it should rely on."
-            : "Let TrustLens generate an answer strictly from the sources, then score it."}
+            ? "You have an answer from another AI and the source material it should rely on — TrustLens scores it. This is the enterprise integration path."
+            : "You supply the sources; TrustLens writes an answer strictly from them, then scores it."}
         </p>
       </div>
 
@@ -196,7 +196,7 @@ export default function AnalyzePage() {
             data={{
               question,
               answer: result.answer,
-              evidence: result.evidence,
+              sources: result.sources,
               claims: result.claims,
               metrics: result.metrics,
               reliability: result.reliability,
@@ -205,6 +205,7 @@ export default function AnalyzePage() {
               reviewRequired: result.review_required,
               requestId: result.request_id,
               source: mode === "generate" ? "TRUSTLENS_LLM" : "EXTERNAL",
+              mode: result.mode,
             }}
           />
         </div>

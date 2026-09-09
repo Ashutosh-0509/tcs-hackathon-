@@ -1,26 +1,24 @@
-"""Orchestrates Mode A (generate + evaluate) and Mode B (evaluate external answer).
+"""Orchestrates the three entry flows:
 
-Flow (ARCHITECTURE.md §5):
-  redact PII -> [generate answer] -> extract claims -> evaluate -> policy
-  -> persist (ONE transaction) -> open review row if label != CERTAIN
+  ask(question)            — retrieve sources, get the model's answer, verify it
+  generate_and_evaluate    — user supplies sources; model answers from them
+  evaluate_external        — user supplies answer + evidence; just score it
+
+Common pipeline (`_run`):
+  redact PII -> extract claims -> per-claim entailment -> reliability policy
+  -> persist (ONE transaction) -> open a review row if label != CERTAIN
 """
 from __future__ import annotations
 
 import logging
 import time
 import uuid
+from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
 from app.core.request_context import get_request_id
-from app.models import (
-    Answer,
-    Claim,
-    Evidence,
-    Question,
-    ReliabilityScore,
-    Review,
-)
+from app.models import Answer, Claim, Evidence, Question, ReliabilityScore, Review
 from app.models.enums import (
     AnswerSource,
     AuditAction,
@@ -35,13 +33,22 @@ from app.schemas.common import (
     PIIFinding,
     ReliabilityBlock,
     SecurityBlock,
+    SourceRef,
 )
 from app.services import audit
 from app.services.evaluation import EvaluationEngine
 from app.services.llm.base import ExtractedClaim, LLMProvider
 from app.services.pii import PIIService
+from app.services.retrieval import RetrievalService, get_retrieval_service
 
 logger = logging.getLogger("trustlens.answer")
+
+
+@dataclass
+class Source:
+    snippet: str
+    title: str | None = None
+    url: str | None = None
 
 
 class AnswerService:
@@ -51,13 +58,48 @@ class AnswerService:
         llm: LLMProvider,
         engine: EvaluationEngine,
         pii: PIIService,
+        retrieval: RetrievalService | None = None,
     ) -> None:
         self.db = db
         self.llm = llm
         self.engine = engine
         self.pii = pii
+        self.retrieval = retrieval or get_retrieval_service()
 
     # ---- public entry points ----
+    def ask(
+        self, *, question: str, include_explanation: bool, actor_id: uuid.UUID | None
+    ) -> AnswerResponse:
+        red_q = self.pii.redact(question)
+
+        # 1. the model answers from its own knowledge
+        answer_result = self.llm.answer_question(red_q.redacted)
+
+        # 2. retrieve independent, citable sources (for the question and the answer)
+        docs = self.retrieval.search_for_answer(red_q.redacted, answer_result.text, k=5)
+        red_sources: list[Source] = []
+        source_spans = []
+        for d in docs:
+            r = self.pii.redact(d.snippet)
+            source_spans.extend(r.spans)
+            red_sources.append(Source(snippet=r.redacted, title=d.title, url=d.url))
+
+        security = self._security_block(red_q.spans + source_spans, ["question", "sources"])
+        return self._run(
+            mode=QuestionMode.ASK,
+            answer_source=AnswerSource.TRUSTLENS_LLM,
+            question=red_q.redacted,
+            sources=red_sources,
+            answer_text=answer_result.text,
+            model=answer_result.model,
+            avg_logprob=answer_result.avg_logprob,
+            logprob_available=answer_result.logprob_available,
+            security=security,
+            include_explanation=include_explanation,
+            actor_id=actor_id,
+            audit_action=AuditAction.ANSWER_GENERATED,
+        )
+
     def generate_and_evaluate(
         self,
         *,
@@ -66,13 +108,18 @@ class AnswerService:
         include_explanation: bool,
         actor_id: uuid.UUID | None,
     ) -> AnswerResponse:
-        red_question, red_sources, security = self._redact(question, source_snippets)
-        result = self.llm.generate_answer(red_question, red_sources)
+        red_q = self.pii.redact(question)
+        red_snips, snip_spans = self.pii.redact_many(source_snippets)
+        sources = [Source(snippet=s) for s in red_snips]
+        security = self._security_block(
+            red_q.spans + snip_spans, ["question", "source_snippets"]
+        )
+        result = self.llm.generate_answer(red_q.redacted, [s.snippet for s in sources])
         return self._run(
             mode=QuestionMode.GENERATE,
             answer_source=AnswerSource.TRUSTLENS_LLM,
-            red_question=red_question,
-            red_sources=red_sources,
+            question=red_q.redacted,
+            sources=sources,
             answer_text=result.text,
             model=result.model,
             avg_logprob=result.avg_logprob,
@@ -100,8 +147,8 @@ class AnswerService:
         return self._run(
             mode=QuestionMode.EVALUATE,
             answer_source=AnswerSource.EXTERNAL,
-            red_question=red_question,
-            red_sources=red_evidence,
+            question=red_question,
+            sources=[Source(snippet=s) for s in red_evidence],
             answer_text=red_answer,
             model=model,
             avg_logprob=None,
@@ -113,16 +160,6 @@ class AnswerService:
         )
 
     # ---- internals ----
-    def _redact(
-        self, question: str, snippets: list[str]
-    ) -> tuple[str, list[str], SecurityBlock]:
-        red_q = self.pii.redact(question)
-        red_snips, snip_spans = self.pii.redact_many(snippets)
-        security = self._security_block(
-            red_q.spans + snip_spans, ["question", "source_snippets"]
-        )
-        return red_q.redacted, red_snips, security
-
     @staticmethod
     def _security_block(spans, fields: list[str]) -> SecurityBlock:
         counts: dict[str, int] = {}
@@ -141,8 +178,8 @@ class AnswerService:
         *,
         mode: QuestionMode,
         answer_source: AnswerSource,
-        red_question: str,
-        red_sources: list[str],
+        question: str,
+        sources: list[Source],
         answer_text: str,
         model: str | None,
         avg_logprob: float | None,
@@ -153,35 +190,48 @@ class AnswerService:
         audit_action: AuditAction,
     ) -> AnswerResponse:
         started = time.perf_counter()
+        snippets = [s.snippet for s in sources]
 
-        # claim extraction
         try:
-            extraction = self.llm.extract_claims(red_question, answer_text)
+            extraction = self.llm.extract_claims(question, answer_text)
             claims: list[ExtractedClaim] = extraction.claims
         except Exception:  # noqa: BLE001
             logger.exception("claim extraction failed; continuing with zero claims")
             claims = []
 
-        # per-claim entailment against the evidence (authoritative support signal)
         judgements = None
-        if claims and red_sources:
+        if claims and snippets:
             try:
-                judgements = self.llm.judge_claims([c.text for c in claims], red_sources)
+                judgements = self.llm.judge_claims([c.text for c in claims], snippets)
             except Exception:  # noqa: BLE001
                 logger.exception("claim entailment check failed; falling back to heuristic")
-                judgements = None
 
         outcome = self.engine.evaluate(
-            question=red_question,
+            question=question,
             answer=answer_text,
             claims=claims,
-            evidence=red_sources,
+            evidence=snippets,
             avg_logprob=avg_logprob,
             logprob_available=logprob_available,
             judgements=judgements,
         )
         reliability = outcome.reliability
         assert reliability is not None
+
+        # For retrieved sources, drop any that no claim actually used (keep a couple
+        # for context) and reindex, so the UI shows a tidy, relevant source list.
+        if mode == QuestionMode.ASK and sources:
+            used = {
+                a.best_evidence_ordinal
+                for a in outcome.claims
+                if a.best_evidence_ordinal is not None
+            }
+            keep = sorted(set(range(min(2, len(sources)))) | used)
+            remap = {old: new for new, old in enumerate(keep)}
+            sources = [sources[i] for i in keep]
+            snippets = [s.snippet for s in sources]
+            for a in outcome.claims:
+                a.best_evidence_ordinal = remap.get(a.best_evidence_ordinal)
 
         explanation = None
         if include_explanation:
@@ -199,20 +249,24 @@ class AnswerService:
                 )
             except Exception:  # noqa: BLE001
                 logger.exception("explanation generation failed")
-                explanation = None
 
         # ---- persist: one transaction ----
         question_row = Question(
-            request_id=get_request_id(),
-            text=red_question,
-            mode=mode.value,
-            created_by=actor_id,
+            request_id=get_request_id(), text=question, mode=mode.value, created_by=actor_id
         )
         self.db.add(question_row)
         self.db.flush()
 
-        for i, snip in enumerate(red_sources):
-            self.db.add(Evidence(question_id=question_row.id, snippet=snip, ordinal=i))
+        for i, src in enumerate(sources):
+            self.db.add(
+                Evidence(
+                    question_id=question_row.id,
+                    snippet=src.snippet,
+                    ordinal=i,
+                    title=src.title,
+                    url=src.url,
+                )
+            )
 
         answer_row = Answer(
             question_id=question_row.id,
@@ -259,9 +313,7 @@ class AnswerService:
 
         review_required = reliability.label != ReliabilityLabel.CERTAIN
         if review_required:
-            self.db.add(
-                Review(answer_id=answer_row.id, status=ReviewStatus.PENDING.value)
-            )
+            self.db.add(Review(answer_id=answer_row.id, status=ReviewStatus.PENDING.value))
 
         latency_ms = round((time.perf_counter() - started) * 1000)
         audit.record(
@@ -289,8 +341,14 @@ class AnswerService:
             request_id=get_request_id(),
             answer_id=str(answer_row.id),
             question_id=str(question_row.id),
+            question=question,
             answer=answer_text,
-            evidence=list(red_sources),
+            mode=mode,
+            evidence=snippets,
+            sources=[
+                SourceRef(ordinal=i, snippet=s.snippet, title=s.title, url=s.url)
+                for i, s in enumerate(sources)
+            ],
             claims=[
                 ClaimResult(
                     text=a.text,

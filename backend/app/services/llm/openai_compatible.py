@@ -146,6 +146,18 @@ class OpenAICompatibleProvider(LLMProvider):
             logprob_available=available,
         )
 
+    def answer_question(self, question: str) -> LLMResult:
+        prompt = load_prompt("ask").format(question=question)
+        data = self._chat([{"role": "user", "content": prompt}], logprobs=True)
+        choice = data["choices"][0]
+        avg_lp, available = _mean_logprob(choice)
+        return LLMResult(
+            text=_clean(choice["message"]["content"] or ""),
+            model=data.get("model", self._model),
+            avg_logprob=avg_lp,
+            logprob_available=available,
+        )
+
     def extract_claims(self, question: str, answer: str) -> ClaimExtraction:
         prompt = load_prompt("claim_extraction").format(question=question, answer=answer)
         data = self._chat([{"role": "user", "content": prompt}], json_mode=True)

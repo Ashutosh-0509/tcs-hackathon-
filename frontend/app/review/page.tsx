@@ -160,8 +160,8 @@ function ReviewDetailPane({
         answer={detail.answer}
         requestId={detail.request_id}
       />
-      <ClaimsPanel claims={detail.claims} evidence={detail.evidence} />
-      <EvidencePanel evidence={detail.evidence} claims={detail.claims} />
+      <ClaimsPanel claims={detail.claims} sources={detail.sources} />
+      <EvidencePanel sources={detail.sources} claims={detail.claims} />
 
       {detail.explanation && (
         <Card>

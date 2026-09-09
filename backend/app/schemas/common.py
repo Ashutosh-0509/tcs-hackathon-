@@ -10,6 +10,13 @@ class PIIFinding(BaseModel):
     count: int
 
 
+class SourceRef(BaseModel):
+    ordinal: int
+    snippet: str
+    title: str | None = None
+    url: str | None = None
+
+
 class SecurityBlock(BaseModel):
     pii_detected: bool
     pii_findings: list[PIIFinding] = []

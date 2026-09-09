@@ -1,24 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import { Check, ChevronDown, CircleAlert, CircleHelp } from "lucide-react";
+import { Check, ChevronDown, CircleAlert, CircleHelp, ExternalLink } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { cn } from "@/lib/cn";
 import { pct } from "@/lib/format";
-import type { ClaimResult } from "@/lib/types";
+import type { ClaimResult, SourceRef } from "@/lib/types";
 
 function statusOf(c: ClaimResult) {
-  if (c.contradicted) return { Icon: CircleAlert, tone: "text-[var(--alert)]", word: "Contradicted" };
-  if (c.supported) return { Icon: Check, tone: "text-[var(--certain)]", word: "Supported" };
-  return { Icon: CircleHelp, tone: "text-[var(--caution)]", word: "Not in evidence" };
+  if (c.contradicted) return { Icon: CircleAlert, tone: "text-[var(--alert)]", word: "Contradicted by a source" };
+  if (c.supported) return { Icon: Check, tone: "text-[var(--certain)]", word: "Backed by a source" };
+  return { Icon: CircleHelp, tone: "text-[var(--caution)]", word: "No source confirms this" };
 }
 
 export function ClaimsPanel({
   claims,
-  evidence,
+  sources,
 }: {
   claims: ClaimResult[];
-  evidence?: string[];
+  sources?: SourceRef[];
 }) {
   const [open, setOpen] = useState<number | null>(0);
   const supported = claims.filter((c) => c.supported).length;
@@ -27,16 +27,16 @@ export function ClaimsPanel({
   return (
     <Card>
       <CardHeader
-        title="Claims"
+        title="Claim check"
         hint={
           claims.length
-            ? `${supported} of ${claims.length} verified against evidence`
+            ? `${supported} of ${claims.length} claims backed by a source`
             : "No atomic claims were extracted"
         }
         right={
           claims.length ? (
             <span className="text-2xs text-ink-faint">
-              {checkedByLlm ? "checked by model" : "lexical check"}
+              {checkedByLlm ? "verified by model" : "lexical check"}
             </span>
           ) : undefined
         }
@@ -45,8 +45,7 @@ export function ClaimsPanel({
         {claims.map((c, i) => {
           const s = statusOf(c);
           const isOpen = open === i;
-          const evIdx = c.best_evidence_ordinal;
-          const ev = evIdx != null ? evidence?.[evIdx] : undefined;
+          const src = c.best_evidence_ordinal != null ? sources?.[c.best_evidence_ordinal] : undefined;
           return (
             <li key={i}>
               <button
@@ -58,15 +57,10 @@ export function ClaimsPanel({
                   {c.text}
                   {c.is_critical && (
                     <span className="ml-2 align-middle text-2xs font-semibold uppercase tracking-wide text-ink-faint">
-                      critical
+                      key claim
                     </span>
                   )}
                 </span>
-                {evIdx != null && (
-                  <span className="mt-0.5 shrink-0 rounded border border-line px-1 font-mono text-2xs text-ink-faint">
-                    E{evIdx + 1}
-                  </span>
-                )}
                 <ChevronDown
                   className={cn(
                     "mt-0.5 h-4 w-4 shrink-0 text-ink-faint transition-transform",
@@ -76,28 +70,33 @@ export function ClaimsPanel({
               </button>
               {isOpen && (
                 <div className="animate-fade-up space-y-2 bg-raised/40 px-5 pb-4 pt-1 text-xs">
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-ink-soft">
-                    <span>
-                      Verdict: <span className={s.tone}>{s.word}</span>
-                    </span>
-                    <span>Similarity {pct(c.semantic_support)}</span>
-                  </div>
-                  {c.rationale && (
-                    <p className="text-ink-soft">
-                      <span className="text-ink-faint">Why: </span>
-                      {c.rationale}
-                    </p>
-                  )}
-                  {ev ? (
-                    <p className="rounded-control border border-line bg-surface p-2.5 leading-relaxed text-ink-soft">
-                      <span className="mr-1 font-mono text-2xs text-ink-faint">
-                        Source E{(evIdx ?? 0) + 1}
-                      </span>
-                      {ev}
-                    </p>
+                  <p>
+                    <span className={cn("font-medium", s.tone)}>{s.word}.</span>{" "}
+                    {c.rationale && <span className="text-ink-soft">{c.rationale}</span>}
+                  </p>
+                  {src ? (
+                    <div className="rounded-control border border-line bg-surface p-2.5">
+                      {src.url ? (
+                        <a
+                          href={src.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 font-medium text-ink hover:underline"
+                        >
+                          {src.title || src.url}
+                          <ExternalLink className="h-3 w-3 text-ink-faint" />
+                        </a>
+                      ) : (
+                        <span className="font-mono text-2xs text-ink-faint">
+                          E{(c.best_evidence_ordinal ?? 0) + 1}
+                        </span>
+                      )}
+                      <p className="mt-1 leading-relaxed text-ink-soft">{src.snippet}</p>
+                    </div>
                   ) : (
-                    <p className="text-ink-faint">No evidence snippet addresses this claim.</p>
+                    <p className="text-ink-faint">No source addresses this claim.</p>
                   )}
+                  <p className="text-ink-faint">Semantic similarity to nearest source: {pct(c.semantic_support)}</p>
                 </div>
               )}
             </li>
