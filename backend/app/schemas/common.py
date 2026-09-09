@@ -25,6 +25,8 @@ class ClaimResult(BaseModel):
     evidence_support: float = Field(ge=0.0, le=1.0)
     contradicted: bool
     best_evidence_ordinal: int | None = None
+    support_source: str = "heuristic"  # "llm" | "heuristic"
+    rationale: str | None = None
 
 
 class MetricsBlock(BaseModel):

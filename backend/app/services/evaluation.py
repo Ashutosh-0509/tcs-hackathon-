@@ -2,9 +2,12 @@
 then applies the ReliabilityPolicy.
 
 Signals (ARCHITECTURE.md §3.3):
-  - evidence_support : fraction of claims whose best evidence cosine >= threshold,
-                       weighted so critical claims count double
-  - semantic_support : mean best-match cosine across claims
+  - evidence_support : weighted fraction of claims an entailment check rules
+                       SUPPORTED (critical claims count double). The entailment
+                       verdict comes from the LLM when available, else from a
+                       lexical coverage heuristic — embedding cosine alone is NOT
+                       used for support because similarity != factual correctness.
+  - semantic_support : mean best-match cosine across claims (a similarity signal only)
   - answer_relevance : cosine(question, answer)
   - uncertainty      : 1 - normalized(perplexity); neutral 0.5 when unavailable
   - flags            : evidence_available, contradictory_evidence,
@@ -24,7 +27,7 @@ from app.policies.reliability import (
     ReliabilitySignals,
 )
 from app.services.embeddings import EmbeddingService, get_embedding_service
-from app.services.llm.base import ExtractedClaim
+from app.services.llm.base import ClaimJudgementResult, Entailment, ExtractedClaim
 
 logger = logging.getLogger("trustlens.evaluation")
 
@@ -48,6 +51,8 @@ class ClaimAssessment:
     supported: bool
     contradicted: bool
     best_evidence_ordinal: int | None
+    support_source: str = "heuristic"  # "llm" | "heuristic"
+    rationale: str = ""
 
 
 @dataclass
@@ -126,10 +131,11 @@ class EvaluationEngine:
         evidence: list[str],
         avg_logprob: float | None = None,
         logprob_available: bool = False,
+        judgements: ClaimJudgementResult | None = None,
     ) -> EvaluationOutcome:
         try:
             return self._evaluate(
-                question, answer, claims, evidence, avg_logprob, logprob_available
+                question, answer, claims, evidence, avg_logprob, logprob_available, judgements
             )
         except Exception:  # noqa: BLE001 - any failure must fail safe, never crash the request
             logger.exception("evaluation failed; forcing NEEDS_VERIFICATION")
@@ -155,6 +161,7 @@ class EvaluationEngine:
         evidence: list[str],
         avg_logprob: float | None,
         logprob_available: bool,
+        judgements: ClaimJudgementResult | None = None,
     ) -> EvaluationOutcome:
         evidence = [e for e in evidence if e and e.strip()]
         evidence_available = len(evidence) > 0
@@ -177,14 +184,44 @@ class EvaluationEngine:
 
         # ---- per-claim support ----
         assessments: list[ClaimAssessment] = []
+        use_llm = bool(
+            judgements
+            and judgements.available
+            and len(judgements.judgements) == len(claims)
+            and claims
+        )
         if claims and evidence_available:
             sim = self.embeddings.similarity_matrix([c.text for c in claims], evidence)
             for i, claim in enumerate(claims):
                 row = sim[i]
                 best_j = int(row.argmax())
                 best_sim = float(row[best_j])
-                supported = best_sim >= self.support_threshold
-                contradicted = _has_negation_mismatch(claim.text, evidence[best_j])
+
+                if use_llm:
+                    j = judgements.judgements[i]
+                    supported = j.verdict == Entailment.SUPPORTED
+                    contradicted = j.verdict == Entailment.CONTRADICTED
+                    ev_ord = (
+                        j.evidence_ordinal
+                        if j.evidence_ordinal is not None and 0 <= j.evidence_ordinal < len(evidence)
+                        else best_j
+                    )
+                    source = "llm"
+                    rationale = j.rationale or j.verdict.value.replace("_", " ").lower()
+                else:
+                    lex_supported = best_sim >= self.support_threshold
+                    contradicted = _has_negation_mismatch(claim.text, evidence[best_j])
+                    supported = lex_supported and not contradicted
+                    ev_ord = best_j
+                    source = "heuristic"
+                    rationale = (
+                        "wording contradicts the closest evidence"
+                        if contradicted
+                        else f"lexical match to evidence E{best_j + 1} ({best_sim:.0%})"
+                        if supported
+                        else "no evidence snippet covers this claim"
+                    )
+
                 assessments.append(
                     ClaimAssessment(
                         text=claim.text,
@@ -193,7 +230,9 @@ class EvaluationEngine:
                         evidence_support=1.0 if supported else max(0.0, best_sim),
                         supported=supported and not contradicted,
                         contradicted=contradicted,
-                        best_evidence_ordinal=best_j,
+                        best_evidence_ordinal=ev_ord,
+                        support_source=source,
+                        rationale=rationale,
                     )
                 )
         else:

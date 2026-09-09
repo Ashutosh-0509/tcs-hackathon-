@@ -18,6 +18,7 @@ _REAL_EMBEDDINGS = get_embedding_service().backend == "sentence-transformers"
 _SAFETY_FIXED = {
     "acme_market_share_unsupported",
     "merger_contradiction",
+    "library_contradiction",
     "no_evidence_capital",
 }
 

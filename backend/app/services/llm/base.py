@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from enum import StrEnum
 
 
 @dataclass(frozen=True)
@@ -38,6 +39,28 @@ class ClaimExtraction:
     model: str = ""
 
 
+class Entailment(StrEnum):
+    SUPPORTED = "SUPPORTED"
+    CONTRADICTED = "CONTRADICTED"
+    NOT_STATED = "NOT_STATED"
+
+
+@dataclass
+class ClaimJudgement:
+    verdict: Entailment
+    evidence_ordinal: int | None = None  # which snippet the verdict is based on
+    rationale: str = ""
+
+
+@dataclass
+class ClaimJudgementResult:
+    judgements: list[ClaimJudgement] = field(default_factory=list)
+    model: str = ""
+    # True when a real entailment check ran; False when the caller should fall
+    # back to the embedding-threshold heuristic.
+    available: bool = False
+
+
 class LLMProvider(ABC):
     """One configured provider per deployment."""
 
@@ -52,6 +75,15 @@ class LLMProvider(ABC):
 
     @abstractmethod
     def extract_claims(self, question: str, answer: str) -> ClaimExtraction: ...
+
+    @abstractmethod
+    def judge_claims(
+        self, claims: list[str], evidence: list[str]
+    ) -> ClaimJudgementResult:
+        """Per-claim entailment against the evidence: SUPPORTED / CONTRADICTED /
+        NOT_STATED. This is the authoritative factual-support signal; embeddings
+        only measure similarity. Return available=False to defer to the
+        embedding heuristic."""
 
     @abstractmethod
     def generate_explanation(

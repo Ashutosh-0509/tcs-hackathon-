@@ -162,6 +162,15 @@ class AnswerService:
             logger.exception("claim extraction failed; continuing with zero claims")
             claims = []
 
+        # per-claim entailment against the evidence (authoritative support signal)
+        judgements = None
+        if claims and red_sources:
+            try:
+                judgements = self.llm.judge_claims([c.text for c in claims], red_sources)
+            except Exception:  # noqa: BLE001
+                logger.exception("claim entailment check failed; falling back to heuristic")
+                judgements = None
+
         outcome = self.engine.evaluate(
             question=red_question,
             answer=answer_text,
@@ -169,6 +178,7 @@ class AnswerService:
             evidence=red_sources,
             avg_logprob=avg_logprob,
             logprob_available=logprob_available,
+            judgements=judgements,
         )
         reliability = outcome.reliability
         assert reliability is not None
@@ -227,6 +237,8 @@ class AnswerService:
                     evidence_support=a.evidence_support,
                     contradicted=a.contradicted,
                     best_evidence_ordinal=a.best_evidence_ordinal,
+                    support_source=a.support_source,
+                    rationale=a.rationale or None,
                 )
             )
 
@@ -288,6 +300,8 @@ class AnswerService:
                     evidence_support=round(a.evidence_support, 4),
                     contradicted=a.contradicted,
                     best_evidence_ordinal=a.best_evidence_ordinal,
+                    support_source=a.support_source,
+                    rationale=a.rationale or None,
                 )
                 for a in outcome.claims
             ],

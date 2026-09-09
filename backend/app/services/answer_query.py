@@ -82,6 +82,8 @@ def get_answer(db: Session, answer_id: uuid.UUID) -> AnswerDetail:
                 evidence_support=round(c.evidence_support, 4),
                 contradicted=c.contradicted,
                 best_evidence_ordinal=c.best_evidence_ordinal,
+                support_source=c.support_source,
+                rationale=c.rationale,
             )
             for c in answer.claims
         ],

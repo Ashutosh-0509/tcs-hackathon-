@@ -1,0 +1,21 @@
+You are a strict fact-checker. For each CLAIM, decide how the EVIDENCE relates to it.
+
+Use ONLY the evidence below. Do not use outside knowledge.
+
+Verdicts:
+- SUPPORTED: the evidence directly states or clearly entails the claim.
+- CONTRADICTED: the evidence directly states the opposite of the claim.
+- NOT_STATED: the evidence neither supports nor contradicts the claim (this includes
+  claims about a topic the evidence mentions but does not actually address).
+
+Be conservative: if the evidence does not actually establish the claim, it is NOT_STATED,
+even if it is about the same entity or topic.
+
+EVIDENCE:
+{evidence}
+
+CLAIMS:
+{claims}
+
+Return ONLY valid JSON:
+{{"judgements": [{{"index": <claim number, 1-based>, "verdict": "SUPPORTED|CONTRADICTED|NOT_STATED", "evidence_index": <1-based evidence number or null>, "rationale": "<short>"}}]}}

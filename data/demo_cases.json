@@ -11,16 +11,26 @@
     "expected_label": "CERTAIN"
   },
   {
-    "name": "library_hours_partial",
+    "name": "exhibition_partial",
     "mode": "EVALUATE",
-    "question": "What are the opening hours of the Central Library?",
-    "answer": "The Central Library is open from 9 AM to 8 PM on weekdays. It is not open on Saturdays.",
+    "question": "What does the Rembrandt exhibition include?",
+    "answer": "The Rembrandt exhibition includes 30 paintings and runs until the end of August. Entry is free for students.",
     "evidence": [
-      "The Central Library operates from 9 AM to 8 PM Monday through Friday.",
-      "The Central Library is open on Saturdays from 10 AM to 4 PM."
+      "The Rembrandt exhibition features 30 paintings and is open until the end of August."
     ],
     "expected_label": "UNCERTAIN",
-    "note": "One claim is well supported; a second claim contradicts the evidence, so the answer cannot be CERTAIN."
+    "note": "The central claim is supported; the 'free for students' detail is simply not stated in the evidence, so the answer is partially verified."
+  },
+  {
+    "name": "library_contradiction",
+    "mode": "EVALUATE",
+    "question": "Is the Central Library open on Saturdays?",
+    "answer": "The Central Library is not open on Saturdays.",
+    "evidence": [
+      "The Central Library is open on Saturdays from 10 AM to 4 PM."
+    ],
+    "expected_label": "NEEDS_VERIFICATION",
+    "note": "The answer directly contradicts the evidence."
   },
   {
     "name": "acme_market_share_unsupported",
@@ -61,7 +71,7 @@
     "evidence": [
       "Applicant contact on file: priya.sharma@example.com, PAN ABCPD1234E, phone 9876543210."
     ],
-    "expected_label": "UNCERTAIN",
-    "note": "Synthetic PII only. Every identifier is redacted before the LLM and before storage."
+    "expected_label": "CERTAIN",
+    "note": "Synthetic PII only. Every identifier is redacted before the LLM and before storage; the redacted claim is still faithful to the redacted evidence, so the label is CERTAIN — this case demonstrates the security pipeline, not a low score."
   }
 ]

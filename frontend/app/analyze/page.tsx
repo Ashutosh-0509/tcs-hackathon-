@@ -37,9 +37,9 @@ const SAMPLES = [
 
 export default function AnalyzePage() {
   const [mode, setMode] = useState<Mode>("evaluate");
-  const [question, setQuestion] = useState(SAMPLES[0].question);
-  const [answer, setAnswer] = useState(SAMPLES[0].answer);
-  const [evidence, setEvidence] = useState(SAMPLES[0].evidence);
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [evidence, setEvidence] = useState("");
   const [result, setResult] = useState<AnswerResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -152,8 +152,9 @@ export default function AnalyzePage() {
             </p>
           </div>
 
-          <div className="flex items-center justify-between">
-            <div className="flex flex-wrap gap-1.5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-ink-faint">Try:</span>
               {SAMPLES.map((s) => (
                 <button
                   key={s.label}
@@ -164,7 +165,11 @@ export default function AnalyzePage() {
                 </button>
               ))}
             </div>
-            <Button onClick={run} loading={loading} disabled={!question.trim()}>
+            <Button
+              onClick={run}
+              loading={loading}
+              disabled={!question.trim() || (mode === "evaluate" && !answer.trim())}
+            >
               {mode === "evaluate" ? "Evaluate" : "Generate & evaluate"}
               {!loading && <ArrowRight className="h-4 w-4" />}
             </Button>

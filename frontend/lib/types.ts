@@ -14,6 +14,8 @@ export interface ClaimResult {
   evidence_support: number;
   contradicted: boolean;
   best_evidence_ordinal: number | null;
+  support_source?: "llm" | "heuristic";
+  rationale?: string | null;
 }
 
 export interface MetricsBlock {

@@ -23,8 +23,10 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://trustlens:trustlens@postgres:5432/trustlens
       JWT_SECRET: ${JWT_SECRET:-dev-insecure-change-me}
-      # Set SEED_ON_START=1 to load demo users + demo cases on boot.
-      SEED_ON_START: ${SEED_ON_START:-1}
+      # Off by default — real data only. Set SEED_ON_START=1 (or run
+      # `docker compose exec backend python -m app.scripts.seed`) to load the
+      # demo accounts + example cases for a walkthrough.
+      SEED_ON_START: ${SEED_ON_START:-0}
     ports:
       - "8000:8000"
     depends_on:
