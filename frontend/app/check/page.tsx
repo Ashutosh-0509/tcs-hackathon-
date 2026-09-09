@@ -138,17 +138,22 @@ export default function AnalyzePage() {
 
           <div>
             <Label htmlFor="e">
-              {mode === "evaluate" ? "Evidence" : "Sources"} — one snippet per line
+              {mode === "evaluate" ? "Evidence" : "Sources"} — one per line
             </Label>
             <Textarea
               id="e"
               value={evidence}
               onChange={(e) => setEvidence(e.target.value)}
               rows={4}
-              placeholder="Paste the source text the answer should be grounded in…"
+              placeholder={
+                "Paste the source text itself — or a link (e.g. https://en.wikipedia.org/wiki/…)\n" +
+                "and TrustLens fetches the page. One source per line."
+              }
             />
             <p className="mt-1.5 text-xs text-ink-faint">
-              PII (PAN, Aadhaar, email, phone, cards) is redacted before anything is sent to a model.
+              A bare URL on its own line is fetched and its text used as the source. Plain search
+              terms (&ldquo;wikipedia&rdquo;) are not — paste the passage or the full link. PII (PAN,
+              Aadhaar, email, phone, cards) is redacted before anything is sent to a model.
             </p>
           </div>
 

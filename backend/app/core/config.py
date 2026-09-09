@@ -60,9 +60,13 @@ class Settings(BaseSettings):
     # --- Security ---
     pii_use_presidio: bool = False
     cors_allow_origins: str = "http://localhost:3000"
+    # Optional regex matched against the request Origin, in addition to the
+    # explicit list above. Lets ephemeral hosts (e.g. Vercel preview deploys)
+    # through without listing every URL. Empty = disabled.
+    cors_allow_origin_regex: str = ""
     rate_limit_per_minute: int = 60
 
-    @field_validator("cors_allow_origins")
+    @field_validator("cors_allow_origins", "cors_allow_origin_regex")
     @classmethod
     def _strip(cls, v: str) -> str:
         return v.strip()
@@ -81,6 +85,10 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.cors_allow_origins.split(",") if o.strip()]
+
+    @property
+    def cors_origin_regex(self) -> str | None:
+        return self.cors_allow_origin_regex or None
 
     @property
     def effective_llm_provider(self) -> str:

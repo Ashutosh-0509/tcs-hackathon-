@@ -38,8 +38,8 @@ from app.schemas.common import (
 from app.services import audit
 from app.services.evaluation import EvaluationEngine
 from app.services.llm.base import ExtractedClaim, LLMProvider
-from app.services.pii import PIIService
-from app.services.retrieval import RetrievalService, get_retrieval_service
+from app.services.pii import PIIService, PIISpan
+from app.services.retrieval import RetrievalService, get_retrieval_service, is_url
 
 logger = logging.getLogger("trustlens.answer")
 
@@ -109,8 +109,7 @@ class AnswerService:
         actor_id: uuid.UUID | None,
     ) -> AnswerResponse:
         red_q = self.pii.redact(question)
-        red_snips, snip_spans = self.pii.redact_many(source_snippets)
-        sources = [Source(snippet=s) for s in red_snips]
+        sources, snip_spans = self._prepare_sources(source_snippets)
         security = self._security_block(
             red_q.spans + snip_spans, ["question", "source_snippets"]
         )
@@ -141,14 +140,14 @@ class AnswerService:
         actor_id: uuid.UUID | None,
     ) -> AnswerResponse:
         (red_question, red_answer), _ = self.pii.redact_many([question, answer])
-        red_evidence, ev_spans = self.pii.redact_many(evidence)
+        sources, ev_spans = self._prepare_sources(evidence)
         q_spans = self.pii.scan(question) + self.pii.scan(answer)
         security = self._security_block(q_spans + ev_spans, ["question", "answer", "evidence"])
         return self._run(
             mode=QuestionMode.EVALUATE,
             answer_source=AnswerSource.EXTERNAL,
             question=red_question,
-            sources=[Source(snippet=s) for s in red_evidence],
+            sources=sources,
             answer_text=red_answer,
             model=model,
             avg_logprob=None,
@@ -160,6 +159,35 @@ class AnswerService:
         )
 
     # ---- internals ----
+    def _prepare_sources(self, entries: list[str]) -> tuple[list[Source], list[PIISpan]]:
+        """Turn the raw 'sources' box into evidence. A line that is just a URL is
+        fetched and its readable text used (split into chunks); every other line
+        is taken as literal evidence text. Everything is PII-redacted here, before
+        it reaches the model or the database."""
+        expanded: list[Source] = []
+        for entry in entries:
+            entry = entry.strip()
+            if not entry:
+                continue
+            if is_url(entry):
+                docs = self.retrieval.fetch_page(entry)
+                if docs:
+                    expanded.extend(
+                        Source(snippet=d.snippet, title=d.title, url=d.url) for d in docs
+                    )
+                    continue
+                logger.warning("could not fetch source URL; keeping it as literal text")
+                expanded.append(Source(snippet=entry, url=entry))
+            else:
+                expanded.append(Source(snippet=entry))
+
+        spans: list[PIISpan] = []
+        for src in expanded:
+            r = self.pii.redact(src.snippet)
+            src.snippet = r.redacted
+            spans.extend(r.spans)
+        return expanded, spans
+
     @staticmethod
     def _security_block(spans, fields: list[str]) -> SecurityBlock:
         counts: dict[str, int] = {}

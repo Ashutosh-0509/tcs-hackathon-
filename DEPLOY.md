@@ -58,6 +58,7 @@ numbers are approximate. Render free web services cold-start after ~15 min idle.
    | `LLM_MODEL` | `openai/gpt-oss-120b` |
    | `LLM_API_KEY` | the Groq key |
    | `CORS_ALLOW_ORIGINS` | `https://tcs-hackathon.vercel.app` |
+   | `CORS_ALLOW_ORIGIN_REGEX` | `https://tcs-hackathon(-[a-z0-9-]+)?\.vercel\.app` (allows Vercel preview deploys) |
    | `SEED_ON_START` | `1` for the demo |
 
 4. Generate a domain. Then on Vercel:

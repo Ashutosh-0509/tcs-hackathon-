@@ -6,15 +6,26 @@ behind the same `search()` call.
 """
 from __future__ import annotations
 
+import html
 import logging
 import re
 from dataclasses import dataclass
+from urllib.parse import unquote, urlparse
 
 import httpx
 
 from app.core.config import get_settings
 
 logger = logging.getLogger("trustlens.retrieval")
+
+_URL_RE = re.compile(r"https?://[^\s<>\"']+", re.IGNORECASE)
+_WS_RE = re.compile(r"[ \t\f\v]+")
+_BLANKS_RE = re.compile(r"\n\s*\n+")
+
+
+def is_url(text: str) -> bool:
+    """True when the whole string is a single http(s) URL (a pasted link)."""
+    return bool(_URL_RE.fullmatch(text.strip()))
 
 # Wikimedia REST API — designed for third-party use, more permissive than w/api.php
 _WIKI_SEARCH = "https://en.wikipedia.org/w/rest.php/v1/search/page"
@@ -32,6 +43,43 @@ class RetrievedDoc:
 
 def _strip_html(text: str) -> str:
     return re.sub(r"<[^>]+>", "", text or "").strip()
+
+
+def _wiki_title_from_url(url: str) -> str | None:
+    p = urlparse(url)
+    if not p.netloc.endswith("wikipedia.org"):
+        return None
+    m = re.match(r"/wiki/([^?#]+)", p.path)
+    return unquote(m.group(1)) if m else None
+
+
+def _html_to_text(raw: str) -> tuple[str, str]:
+    """Very small readability pass: drop non-content elements, keep block text."""
+    title_m = re.search(r"<title[^>]*>(.*?)</title>", raw, re.I | re.S)
+    title = html.unescape(_WS_RE.sub(" ", title_m.group(1)).strip()) if title_m else ""
+    body = re.sub(r"(?is)<(script|style|noscript|head|nav|footer|header|form|svg)[^>]*>.*?</\1>", " ", raw)
+    body = re.sub(r"(?is)<(br|/p|/div|/li|/h[1-6]|/tr)\s*>", "\n", body)
+    body = re.sub(r"(?s)<[^>]+>", " ", body)
+    body = html.unescape(body)
+    body = _WS_RE.sub(" ", body)
+    body = _BLANKS_RE.sub("\n\n", body).strip()
+    return title, body
+
+
+def _chunk(text: str, *, max_chunks: int, chunk_chars: int) -> list[str]:
+    paras = [p.strip() for p in text.split("\n") if len(p.strip()) > 40]
+    chunks: list[str] = []
+    buf = ""
+    for para in paras:
+        if buf and len(buf) + len(para) + 1 > chunk_chars:
+            chunks.append(buf)
+            buf = ""
+            if len(chunks) >= max_chunks:
+                break
+        buf = f"{buf} {para}".strip()
+    if buf and len(chunks) < max_chunks:
+        chunks.append(buf)
+    return chunks or ([text[:chunk_chars]] if text.strip() else [])
 
 
 # multi-word Capitalised sequences — proper-noun phrases (people, places, works)
@@ -119,6 +167,63 @@ class RetrievalService:
             if len(seen) >= k + 2:
                 break
         return list(seen.values())[:k]
+
+    # ---- fetch a URL the user pasted as a source ----
+    def fetch_page(self, url: str, max_chunks: int = 6, chunk_chars: int = 1200) -> list[RetrievedDoc]:
+        """Fetch a web page the user gave as a source and return its readable
+        text, split into paragraph-sized chunks so the per-claim checks have
+        something granular to match. Returns [] on any failure (caller falls
+        back to treating the raw string as evidence)."""
+        if self.provider == "none":
+            return []
+        url = url.strip()
+        try:
+            title, text = self._read_url(url)
+        except Exception:  # noqa: BLE001 - a bad link must not break the request
+            logger.exception("failed to fetch source URL %r", url[:200])
+            return []
+        chunks = _chunk(text, max_chunks=max_chunks, chunk_chars=chunk_chars)
+        return [RetrievedDoc(title=title, url=url, snippet=c) for c in chunks]
+
+    def _read_url(self, url: str) -> tuple[str, str]:
+        headers = {"User-Agent": _UA, "Api-User-Agent": _UA, "Accept": "*/*"}
+        with httpx.Client(timeout=self.timeout, headers=headers, follow_redirects=True) as client:
+            wiki_title = _wiki_title_from_url(url)
+            if wiki_title:
+                extract = self._full_extract(client, wiki_title)
+                if extract:
+                    return wiki_title.replace("_", " "), extract
+            resp = client.get(url)
+            resp.raise_for_status()
+            ctype = resp.headers.get("content-type", "")
+            if "html" not in ctype and "text" not in ctype and ctype:
+                raise ValueError(f"unsupported content-type {ctype!r}")
+            title, body = _html_to_text(resp.text)
+            return (title or urlparse(url).netloc), body
+
+    @staticmethod
+    def _full_extract(client: httpx.Client, title: str) -> str:
+        """Whole-article plain text for one Wikipedia title (not just the intro)."""
+        try:
+            r = client.get(
+                _WIKI_API,
+                params={
+                    "action": "query",
+                    "prop": "extracts",
+                    "explaintext": 1,
+                    "redirects": 1,
+                    "format": "json",
+                    "titles": title.replace("_", " "),
+                },
+            )
+            if r.status_code != 200:
+                return ""
+            for page in r.json().get("query", {}).get("pages", {}).values():
+                if page.get("extract"):
+                    return page["extract"].strip()
+            return ""
+        except httpx.HTTPError:
+            return ""
 
     # ---- Wikipedia ----
     def _wikipedia(self, query: str, k: int) -> list[RetrievedDoc]:

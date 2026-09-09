@@ -293,6 +293,9 @@ in `docker-compose`).
 client → FastAPI
   middleware: assign request_id TRUST-2026-000123, start latency timer
   auth: optional (demo) — actor may be anonymous or a USER
+  0. AnswerService._prepare_sources(source_snippets)   → a line that is a bare
+        URL is fetched (RetrievalService.fetch_page) and its readable text used,
+        split into chunks; other lines stay literal
   1. PIIService.redact(question, source_snippets)      → redacted inputs + findings
   2. provider.generate_answer(redacted_question, redacted_evidence)
   3. provider.extract_claims(answer)                   → claims[] (Pydantic-validated)
@@ -309,8 +312,9 @@ client → FastAPI
 ### 5.2 Mode B — `POST /api/v1/evaluate` (evaluate external answer)
 
 Same as Mode A but step 2 is skipped; `answer` comes from the request body,
-`answers.source = EXTERNAL`, audit action `ANSWER_EVALUATED`. This is the
-strategic TCS integration path (TECH_STACK §94–96).
+`answers.source = EXTERNAL`, audit action `ANSWER_EVALUATED`. Step 0 (URL
+fetching for `evidence` lines) still applies. This is the strategic TCS
+integration path (TECH_STACK §94–96).
 
 ### 5.3 Review — `POST /api/v1/reviews/{id}`
 
@@ -348,7 +352,8 @@ NEEDS_VERIFICATION` and `reasons` explaining the failure. LLM timeout (default
 | `WEIGHT_EVIDENCE` / `WEIGHT_SEMANTIC` / `WEIGHT_UNCERTAINTY` / `WEIGHT_RELEVANCE` | `0.50 / 0.25 / 0.15 / 0.10` | policy weights |
 | `EVIDENCE_SUPPORT_THRESHOLD` | `0.55` | cosine cutoff for "supported" |
 | `PII_USE_PRESIDIO` | `false` | enable optional Presidio pass |
-| `CORS_ALLOW_ORIGINS` | `http://localhost:3000` | explicit CORS allowlist |
+| `CORS_ALLOW_ORIGINS` | `http://localhost:3000` | explicit CORS allowlist (comma-separated) |
+| `CORS_ALLOW_ORIGIN_REGEX` | `` | optional regex OR-ed with the allowlist (e.g. Vercel preview deploys) |
 | `RATE_LIMIT_PER_MINUTE` | `60` | basic app-level rate limit |
 
 Secrets are never logged. `.env` is git-ignored; `.env.example` is committed.

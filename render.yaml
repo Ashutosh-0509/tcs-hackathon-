@@ -37,6 +37,9 @@ services:
         sync: false            # paste your Groq key in the Render dashboard
       - key: CORS_ALLOW_ORIGINS
         value: https://tcs-hackathon.vercel.app
+      # Vercel preview/alias deploys get generated subdomains — allow them too.
+      - key: CORS_ALLOW_ORIGIN_REGEX
+        value: https://tcs-hackathon(-[a-z0-9-]+)?\.vercel\.app
       - key: SEED_ON_START
         value: "0"
       - key: ENVIRONMENT
