@@ -33,12 +33,12 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 
-# graft
-graft/.cache/
-
-# Local models cache
-.cache/
-models/
+# Local ML model / HF cache (never in the repo tree; keep patterns specific so
+# they don't shadow app/models/)
+/.cache/
+/models/
+.hf/
+backend/.hf/
 
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 /graft/
