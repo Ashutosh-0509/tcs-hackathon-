@@ -1,28 +1,20 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthProvider } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: "TrustLens",
-  description: "A reliability layer for AI answers.",
+  description: "A reliability layer for AI answers. The backend is the source of truth.",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+const themeScript = `(function(){try{var m=localStorage.getItem('trustlens.theme');if(m==='dark'||m==='light'){document.documentElement.setAttribute('data-theme',m);}}catch(e){}})();`;
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body>
-        <div className="mx-auto max-w-3xl px-4 py-8">
-          <header className="mb-8">
-            <h1 className="text-2xl font-semibold tracking-tight">TrustLens</h1>
-            <p className="text-sm text-slate-500">
-              A reliability layer for AI answers. The backend is the source of truth.
-            </p>
-          </header>
-          {children}
-        </div>
+    <html lang="en" suppressHydrationWarning>
+      <body className="font-sans antialiased">
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

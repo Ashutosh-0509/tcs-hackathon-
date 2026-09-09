@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
+from app.models.enums import AnswerSource, QuestionMode, ReliabilityLabel, ReviewStatus
 from app.schemas.common import (
     ClaimResult,
     MetricsBlock,
@@ -34,9 +37,43 @@ class AnswerResponse(BaseModel):
     answer_id: str
     question_id: str
     answer: str
+    evidence: list[str]
     claims: list[ClaimResult]
     metrics: MetricsBlock
     reliability: ReliabilityBlock
     security: SecurityBlock
     explanation: str | None = None
     review_required: bool
+
+
+class ReviewSummary(BaseModel):
+    review_id: str
+    status: ReviewStatus
+    overridden_label: ReliabilityLabel | None = None
+    decision_note: str | None = None
+    decided_at: datetime | None = None
+
+
+class AnswerSummary(BaseModel):
+    answer_id: str
+    question_id: str
+    request_id: str
+    question: str
+    answer: str
+    mode: QuestionMode
+    source: AnswerSource
+    model: str | None = None
+    label: ReliabilityLabel
+    effective_label: ReliabilityLabel
+    final_score: int
+    review_status: ReviewStatus | None = None
+    created_at: datetime
+
+
+class AnswerDetail(AnswerSummary):
+    claims: list[ClaimResult]
+    metrics: MetricsBlock
+    reliability: ReliabilityBlock
+    evidence: list[str]
+    explanation: str | None = None
+    review: ReviewSummary | None = None

@@ -22,6 +22,9 @@ services:
         required: false
     environment:
       DATABASE_URL: postgresql+psycopg://trustlens:trustlens@postgres:5432/trustlens
+      JWT_SECRET: ${JWT_SECRET:-dev-insecure-change-me}
+      # Set SEED_ON_START=1 to load demo users + demo cases on boot.
+      SEED_ON_START: ${SEED_ON_START:-1}
     ports:
       - "8000:8000"
     depends_on:
@@ -29,16 +32,24 @@ services:
         condition: service_healthy
     command: >
       sh -c "alembic upgrade head &&
+             if [ \"$$SEED_ON_START\" = \"1\" ]; then python -m app.scripts.seed || true; fi &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/v1/health').status==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
 
   frontend:
     build: ./frontend
     environment:
-      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
     ports:
       - "3000:3000"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
 volumes:
   pgdata:

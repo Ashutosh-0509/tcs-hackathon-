@@ -211,6 +211,7 @@ class AnswerService:
             model=model,
             perplexity=outcome.perplexity,
             perplexity_available=outcome.perplexity_available,
+            explanation=explanation,
         )
         self.db.add(answer_row)
         self.db.flush()
@@ -277,6 +278,7 @@ class AnswerService:
             answer_id=str(answer_row.id),
             question_id=str(question_row.id),
             answer=answer_text,
+            evidence=list(red_sources),
             claims=[
                 ClaimResult(
                     text=a.text,

@@ -1,45 +1,67 @@
 [
   {
-    "name": "python_supported",
-    "question": "Who invented Python?",
-    "answer": "Python was created by Guido van Rossum.",
-    "source": "Python was created by Guido van Rossum and first released in 1991.",
+    "name": "linux_supported",
+    "mode": "EVALUATE",
+    "question": "Who created the Linux kernel?",
+    "answer": "The Linux kernel was created by Linus Torvalds in 1991.",
+    "evidence": [
+      "The Linux kernel was first released by Linus Torvalds in 1991.",
+      "Linus Torvalds announced the project on the comp.os.minix newsgroup."
+    ],
     "expected_label": "CERTAIN"
   },
   {
-    "name": "telephone_partial",
-    "question": "Who invented the telephone?",
-    "answer": "The telephone was invented by Alexander Graham Bell.",
-    "source": "Alexander Graham Bell patented a telephone design in 1876.",
-    "expected_label": "UNCERTAIN"
-  },
-  {
-    "name": "unsupported_ceo",
-    "question": "Who is the CEO of Company X?",
-    "answer": "The CEO of Company X is Jane Doe.",
-    "source": "Company X was founded in 1995 and is headquartered in Pune.",
-    "expected_label": "NEEDS_VERIFICATION"
-  },
-  {
-    "name": "contradicted_claim",
-    "question": "Is the Earth flat?",
-    "answer": "The Earth is flat.",
-    "source": "The Earth is not flat; it is an oblate spheroid.",
-    "expected_label": "NEEDS_VERIFICATION"
-  },
-  {
-    "name": "no_evidence",
-    "question": "What is the capital of Atlantis?",
-    "answer": "The capital of Atlantis is Poseidonis.",
-    "source": "",
-    "expected_label": "NEEDS_VERIFICATION"
-  },
-  {
-    "name": "pii_customer_record",
-    "question": "Explain this customer record.",
-    "answer": "The customer holds PAN ABCPD1234E and can be reached at customer@example.com.",
-    "source": "Customer record: PAN ABCPD1234E, email customer@example.com, phone 9876543210.",
+    "name": "library_hours_partial",
+    "mode": "EVALUATE",
+    "question": "What are the opening hours of the Central Library?",
+    "answer": "The Central Library is open from 9 AM to 8 PM on weekdays. It is not open on Saturdays.",
+    "evidence": [
+      "The Central Library operates from 9 AM to 8 PM Monday through Friday.",
+      "The Central Library is open on Saturdays from 10 AM to 4 PM."
+    ],
     "expected_label": "UNCERTAIN",
-    "note": "Synthetic PII only. All identifiers must be redacted before the LLM and before storage."
+    "note": "One claim is well supported; a second claim contradicts the evidence, so the answer cannot be CERTAIN."
+  },
+  {
+    "name": "acme_market_share_unsupported",
+    "mode": "EVALUATE",
+    "question": "What was Acme Corp's market share in 2024?",
+    "answer": "Acme Corp held a 37% market share in 2024.",
+    "evidence": [
+      "Acme Corp was founded in 2009 and is headquartered in Bangalore."
+    ],
+    "expected_label": "NEEDS_VERIFICATION",
+    "note": "The central claim has no supporting evidence."
+  },
+  {
+    "name": "merger_contradiction",
+    "mode": "EVALUATE",
+    "question": "Was the merger approved by regulators in March?",
+    "answer": "The merger was approved by regulators in March.",
+    "evidence": [
+      "Regulators did not approve the merger in March; the proposal was rejected over competition concerns."
+    ],
+    "expected_label": "NEEDS_VERIFICATION",
+    "note": "The evidence directly contradicts the central claim."
+  },
+  {
+    "name": "no_evidence_capital",
+    "mode": "EVALUATE",
+    "question": "What is the capital of the fictional country of Zephyria?",
+    "answer": "The capital of Zephyria is Aureon.",
+    "evidence": [],
+    "expected_label": "NEEDS_VERIFICATION",
+    "note": "No evidence was supplied; the evaluator must fail safe."
+  },
+  {
+    "name": "applicant_pii",
+    "mode": "EVALUATE",
+    "question": "Summarise the applicant's contact details.",
+    "answer": "The applicant can be reached at priya.sharma@example.com and holds PAN ABCPD1234E.",
+    "evidence": [
+      "Applicant contact on file: priya.sharma@example.com, PAN ABCPD1234E, phone 9876543210."
+    ],
+    "expected_label": "UNCERTAIN",
+    "note": "Synthetic PII only. Every identifier is redacted before the LLM and before storage."
   }
 ]

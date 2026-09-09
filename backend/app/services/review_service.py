@@ -1,4 +1,9 @@
-"""Human review queue. EDITOR/ADMIN only (enforced at the API layer)."""
+"""Human review queue. EDITOR/ADMIN only (enforced at the API layer).
+
+A review records a human decision. It never rewrites the machine reliability score;
+if the editor disagrees with the label they set `overridden_label`, and the
+*effective* label surfaced to consumers becomes the override.
+"""
 from __future__ import annotations
 
 import uuid
@@ -9,17 +14,24 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.errors import NotFoundError, TrustLensError
 from app.models import Answer, Question, Review
-from app.models.enums import AuditAction, ReviewStatus
+from app.models.enums import AuditAction, ReliabilityLabel, ReviewStatus
 from app.schemas.review import ReviewDecisionRequest, ReviewDetail, ReviewQueueItem
 from app.services import audit
 
 _DECISION_STATUSES = {ReviewStatus.APPROVED, ReviewStatus.REJECTED, ReviewStatus.ESCALATED}
 
 
+def effective_label(review: Review | None, machine_label: str) -> str:
+    if review and review.overridden_label:
+        return review.overridden_label
+    return machine_label
+
+
 def _queue_item(review: Review) -> ReviewQueueItem:
     answer = review.answer
     question = answer.question
     rel = answer.reliability
+    machine = rel.label if rel else ReliabilityLabel.NEEDS_VERIFICATION
     return ReviewQueueItem(
         review_id=str(review.id),
         answer_id=str(answer.id),
@@ -27,14 +39,18 @@ def _queue_item(review: Review) -> ReviewQueueItem:
         request_id=question.request_id,
         question=question.text,
         answer=answer.text,
-        label=rel.label if rel else "NEEDS_VERIFICATION",
+        label=machine,
+        effective_label=effective_label(review, machine),
+        overridden_label=review.overridden_label,
         final_score=rel.final_score if rel else 0,
         status=review.status,
         created_at=review.created_at,
     )
 
 
-def list_queue(db: Session, *, status: str | None, limit: int, offset: int) -> list[ReviewQueueItem]:
+def list_queue(
+    db: Session, *, status: str | None, limit: int, offset: int
+) -> list[ReviewQueueItem]:
     stmt = (
         select(Review)
         .options(
@@ -55,7 +71,9 @@ def get_detail(db: Session, review_id: uuid.UUID) -> ReviewDetail:
         select(Review)
         .where(Review.id == review_id)
         .options(
-            selectinload(Review.answer).selectinload(Answer.question).selectinload(Question.evidence),
+            selectinload(Review.answer)
+            .selectinload(Answer.question)
+            .selectinload(Question.evidence),
             selectinload(Review.answer).selectinload(Answer.reliability),
             selectinload(Review.answer).selectinload(Answer.claims),
         )
@@ -69,6 +87,7 @@ def get_detail(db: Session, review_id: uuid.UUID) -> ReviewDetail:
     return ReviewDetail(
         **base.model_dump(),
         reasons=list(rel.reasons) if rel else [],
+        explanation=answer.explanation,
         claims=[
             {
                 "text": c.text,
@@ -106,6 +125,9 @@ def decide(
 
     review.status = payload.status
     review.decision_note = payload.decision_note
+    review.overridden_label = (
+        payload.override_label.value if payload.override_label else None
+    )
     review.reviewed_by = reviewer_id
     review.decided_at = datetime.now(UTC)
 
@@ -115,7 +137,11 @@ def decide(
         entity_type="review",
         entity_id=review.id,
         actor_id=reviewer_id,
-        metadata={"status": payload.status, "answer_id": str(review.answer_id)},
+        metadata={
+            "status": payload.status,
+            "answer_id": str(review.answer_id),
+            "overridden_label": review.overridden_label,
+        },
     )
     db.commit()
     return get_detail(db, review_id)

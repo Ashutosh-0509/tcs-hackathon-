@@ -1,6 +1,10 @@
-// Mirrors backend app/schemas. Keep in sync with the OpenAPI at /api/docs.
+// Mirrors backend app/schemas. Keep in sync with OpenAPI at /api/docs.
 
 export type ReliabilityLabel = "CERTAIN" | "UNCERTAIN" | "NEEDS_VERIFICATION";
+export type ReviewStatus = "PENDING" | "APPROVED" | "REJECTED" | "ESCALATED";
+export type QuestionMode = "GENERATE" | "EVALUATE";
+export type AnswerSource = "TRUSTLENS_LLM" | "EXTERNAL";
+export type Role = "USER" | "EDITOR" | "ADMIN";
 
 export interface ClaimResult {
   text: string;
@@ -46,12 +50,46 @@ export interface AnswerResponse {
   answer_id: string;
   question_id: string;
   answer: string;
+  evidence: string[];
   claims: ClaimResult[];
   metrics: MetricsBlock;
   reliability: ReliabilityBlock;
   security: SecurityBlock;
   explanation: string | null;
   review_required: boolean;
+}
+
+export interface AnswerSummary {
+  answer_id: string;
+  question_id: string;
+  request_id: string;
+  question: string;
+  answer: string;
+  mode: QuestionMode;
+  source: AnswerSource;
+  model: string | null;
+  label: ReliabilityLabel;
+  effective_label: ReliabilityLabel;
+  final_score: number;
+  review_status: ReviewStatus | null;
+  created_at: string;
+}
+
+export interface ReviewSummary {
+  review_id: string;
+  status: ReviewStatus;
+  overridden_label: ReliabilityLabel | null;
+  decision_note: string | null;
+  decided_at: string | null;
+}
+
+export interface AnswerDetail extends AnswerSummary {
+  claims: ClaimResult[];
+  metrics: MetricsBlock;
+  reliability: ReliabilityBlock;
+  evidence: string[];
+  explanation: string | null;
+  review: ReviewSummary | null;
 }
 
 export interface ReviewQueueItem {
@@ -62,7 +100,37 @@ export interface ReviewQueueItem {
   question: string;
   answer: string;
   label: ReliabilityLabel;
+  effective_label: ReliabilityLabel;
+  overridden_label: ReliabilityLabel | null;
   final_score: number;
-  status: "PENDING" | "APPROVED" | "REJECTED" | "ESCALATED";
+  status: ReviewStatus;
   created_at: string;
+}
+
+export interface ReviewDetail extends ReviewQueueItem {
+  reasons: string[];
+  claims: ClaimResult[];
+  evidence: string[];
+  explanation: string | null;
+  decision_note: string | null;
+  reviewed_by: string | null;
+  decided_at: string | null;
+}
+
+export interface AuditEntry {
+  id: string;
+  request_id: string;
+  actor_id: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface AuditPage {
+  items: AuditEntry[];
+  total: number;
+  limit: number;
+  offset: number;
 }

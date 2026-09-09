@@ -12,10 +12,14 @@ DEMO = json.loads(
 )
 
 # Cases whose label is fixed by a deterministic safety override (no evidence /
-# contradiction) are asserted exactly regardless of embedding backend. The rest
-# depend on semantic-similarity quality and are only asserted with real embeddings.
+# contradiction / unsupported critical claim) are asserted exactly regardless of the
+# embedding backend. The rest depend on semantic-similarity quality.
 _REAL_EMBEDDINGS = get_embedding_service().backend == "sentence-transformers"
-_SAFETY_FIXED = {"unsupported_ceo", "contradicted_claim", "no_evidence"}
+_SAFETY_FIXED = {
+    "acme_market_share_unsupported",
+    "merger_contradiction",
+    "no_evidence_capital",
+}
 
 
 def test_health(client):
@@ -28,9 +32,9 @@ def test_evaluate_supported_answer(client):
     resp = client.post(
         "/api/v1/evaluate",
         json={
-            "question": "Who invented Python?",
-            "answer": "Python was created by Guido van Rossum.",
-            "evidence": ["Python was created by Guido van Rossum and first released in 1991."],
+            "question": "Who created the Linux kernel?",
+            "answer": "The Linux kernel was created by Linus Torvalds in 1991.",
+            "evidence": ["The Linux kernel was first released by Linus Torvalds in 1991."],
         },
     )
     assert resp.status_code == 200, resp.text
@@ -47,9 +51,9 @@ def test_evaluate_no_evidence_needs_verification_and_opens_review(client, regist
     resp = client.post(
         "/api/v1/evaluate",
         json={
-            "question": "Who is the CEO of Company X?",
-            "answer": "The CEO of Company X is Jane Doe.",
-            "evidence": ["Company X was founded in 1995."],
+            "question": "What was Acme Corp's market share in 2024?",
+            "answer": "Acme Corp held a 37% market share in 2024.",
+            "evidence": ["Acme Corp was founded in 2009."],
         },
     )
     body = resp.json()
@@ -67,7 +71,7 @@ def test_evaluate_redacts_pii_before_storage(client):
     resp = client.post(
         "/api/v1/evaluate",
         json={
-            "question": "Explain this customer record.",
+            "question": "Summarise this customer record.",
             "answer": "The customer PAN is ABCPD1234E.",
             "evidence": ["Customer PAN ABCPD1234E, email customer@example.com."],
         },
@@ -78,15 +82,41 @@ def test_evaluate_redacts_pii_before_storage(client):
     assert "ABCPD1234E" not in json.dumps(body)
 
 
-def test_review_decision_flow(client, register):
+def test_history_and_detail_endpoints(client, register):
+    token = register("hist@example.com", role="USER")
+    h = {"Authorization": f"Bearer {token}"}
+    ev = client.post(
+        "/api/v1/evaluate",
+        headers=h,
+        json={
+            "question": "Who created the Linux kernel?",
+            "answer": "Linus Torvalds created the Linux kernel.",
+            "evidence": ["The Linux kernel was created by Linus Torvalds."],
+        },
+    ).json()
+
+    mine = client.get("/api/v1/answers?mine=true", headers=h).json()
+    assert any(a["answer_id"] == ev["answer_id"] for a in mine)
+
+    detail = client.get(f"/api/v1/answers/{ev['answer_id']}").json()
+    assert detail["answer_id"] == ev["answer_id"]
+    assert detail["effective_label"] == detail["label"]
+    assert "claims" in detail and "evidence" in detail and "reliability" in detail
+
+
+def test_review_decision_and_label_override(client, register):
     ev = client.post(
         "/api/v1/evaluate",
         json={
-            "question": "Is the Earth flat?",
-            "answer": "The Earth is flat.",
-            "evidence": ["The Earth is not flat; it is an oblate spheroid."],
+            "question": "Was the merger approved by regulators in March?",
+            "answer": "The merger was approved by regulators in March.",
+            "evidence": [
+                "Regulators did not approve the merger in March; the proposal was rejected."
+            ],
         },
     ).json()
+    assert ev["reliability"]["label"] == "NEEDS_VERIFICATION"
+
     token = register("editor-decide@example.com", role="EDITOR")
     h = {"Authorization": f"Bearer {token}"}
     queue = client.get("/api/v1/reviews", headers=h).json()
@@ -95,12 +125,20 @@ def test_review_decision_flow(client, register):
     decided = client.post(
         f"/api/v1/reviews/{review_id}",
         headers=h,
-        json={"status": "REJECTED", "decision_note": "Contradicts evidence."},
+        json={
+            "status": "REJECTED",
+            "decision_note": "Evidence contradicts the claim.",
+            "override_label": "NEEDS_VERIFICATION",
+        },
     )
     assert decided.status_code == 200
     assert decided.json()["status"] == "REJECTED"
+    assert decided.json()["effective_label"] == "NEEDS_VERIFICATION"
 
-    # second decision is rejected
+    # override surfaces on the answer detail
+    detail = client.get(f"/api/v1/answers/{ev['answer_id']}").json()
+    assert detail["review"]["status"] == "REJECTED"
+
     again = client.post(
         f"/api/v1/reviews/{review_id}", headers=h, json={"status": "APPROVED"}
     )
@@ -108,18 +146,17 @@ def test_review_decision_flow(client, register):
 
 
 @pytest.mark.parametrize("case", DEMO, ids=[c["name"] for c in DEMO])
-def test_demo_cases_match_expected_labels(client, case):
+def test_demo_cases(client, case):
     resp = client.post(
         "/api/v1/evaluate",
         json={
             "question": case["question"],
             "answer": case["answer"],
-            "evidence": [case["source"]] if case["source"] else [],
+            "evidence": case.get("evidence", []),
         },
     )
     assert resp.status_code == 200, resp.text
     label = resp.json()["reliability"]["label"]
-    assert label in {"CERTAIN", "UNCERTAIN", "NEEDS_VERIFICATION"}
-    # Deterministic safety overrides must hold on every backend.
-    if case["name"] in _SAFETY_FIXED:
-        assert label == "NEEDS_VERIFICATION"
+    # Safety-fixed cases must always hold; the rest are asserted too (they are
+    # deterministic on the hashed fallback and only sharper with a real model).
+    assert label == case["expected_label"], case["name"]
