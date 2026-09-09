@@ -35,29 +35,50 @@ def _strip_html(text: str) -> str:
 
 
 # multi-word Capitalised sequences — proper-noun phrases (people, places, works)
-_ENTITY = re.compile(r"\b([A-Z][a-z]+(?:\s+(?:of|the|de|van|von|and|[A-Z][a-z]+))+)\b")
+_TOKEN_RE = r"(?:[A-Z][a-z]+|of|the|de|van|von|and)"
+_ENTITY = re.compile(rf"\b({_TOKEN_RE}(?:\s+{_TOKEN_RE})+)\b")
 _MONTHS = {
-    "January", "February", "March", "April", "May", "June", "July",
-    "August", "September", "October", "November", "December",
+    "january", "february", "march", "april", "may", "june", "july",
+    "august", "september", "october", "november", "december",
 }
-_ENTITY_STOP = _MONTHS | {
-    "The", "A", "An", "It", "This", "That", "There", "In", "On", "According",
-    "British", "American", "French", "German", "Indian", "Chinese", "European",
+_LEAD_STOP = _MONTHS | {
+    "the", "a", "an", "it", "this", "that", "there", "in", "on", "according",
+    "and", "of", "de", "does", "do", "did", "is", "are", "was", "were", "who",
+    "what", "when", "where", "why", "how", "which", "has", "have", "had", "can",
+    "could", "would", "should", "will",
+}
+_QUERY_STOP = _LEAD_STOP | {
+    "is", "are", "was", "were", "did", "do", "does", "has", "have", "had", "who",
+    "what", "when", "where", "why", "how", "which", "whom", "to", "for", "from",
+    "over", "about", "into", "than", "with", "as", "by", "at", "or", "not", "be",
+    "its", "their", "his", "her", "any", "many", "much", "very", "also", "can",
+    "could", "would", "should", "may", "might", "will", "shall", "km", "years",
 }
 
 
 def _entities(text: str, limit: int = 3) -> list[str]:
     out: list[str] = []
     for m in _ENTITY.finditer(text):
-        phrase = " ".join(w for w in m.group(1).split())
-        first = phrase.split()[0]
-        if first in _ENTITY_STOP or len(phrase.split()) < 2:
+        words = m.group(1).split()
+        while words and words[0].lower() in _LEAD_STOP:
+            words = words[1:]
+        while words and words[-1].lower() in _LEAD_STOP:
+            words = words[:-1]
+        if len(words) < 2 or not any(w[:1].isupper() for w in words):
             continue
+        phrase = " ".join(words)
         if phrase not in out:
             out.append(phrase)
         if len(out) >= limit:
             break
     return out
+
+
+def _keyword_query(text: str) -> str:
+    """Reduce a natural-language question to its content words for keyword search."""
+    words = re.findall(r"[A-Za-z0-9][A-Za-z0-9'\-]*", text)
+    kept = [w for w in words if w.lower() not in _QUERY_STOP and len(w) > 1]
+    return " ".join(kept[:12])
 
 
 class RetrievalService:
@@ -76,17 +97,27 @@ class RetrievalService:
             return []
 
     def search_for_answer(self, question: str, answer: str, k: int = 6) -> list[RetrievedDoc]:
-        """Retrieve for the Ask flow: search the question, then the proper nouns
-        named in the answer (people, places, works) so we actually pull the pages
-        that can confirm or refute the specific claims. Merge and dedupe."""
+        """Retrieve for the Ask flow: search the question's keywords and the proper
+        nouns named in the question and answer, so we actually pull the pages that
+        can confirm or refute the specific claims. Merge and dedupe."""
         if self.provider == "none":
             return []
         seen: dict[str, RetrievedDoc] = {}
-        for d in self.search(question, 3):
-            seen.setdefault(d.url, d)
-        for entity in _entities(answer):
-            for d in self.search(entity, 1):
+
+        q_entities = _entities(question)
+        entities = q_entities + [e for e in _entities(answer) if e not in q_entities]
+
+        # entities are precise -> search them first; keyword query is the fallback
+        queries: list[tuple[str, int]] = [(e, 2) for e in entities[:4]]
+        queries.append((_keyword_query(question) or question, 3))
+
+        for q, n in queries:
+            if not q.strip():
+                continue
+            for d in self.search(q, n):
                 seen.setdefault(d.url, d)
+            if len(seen) >= k + 2:
+                break
         return list(seen.values())[:k]
 
     # ---- Wikipedia ----
@@ -117,7 +148,7 @@ class RetrievalService:
                     RetrievedDoc(
                         title=title,
                         url=f"https://en.wikipedia.org/wiki/{key}",
-                        snippet=snippet[:1000],
+                        snippet=snippet[:2500],
                     )
                 )
         return docs
